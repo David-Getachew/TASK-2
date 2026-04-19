@@ -2,7 +2,7 @@
 BE-API-HTTP: Admin endpoints — feature flags, cohort management, audit search,
 export jobs, metrics summary, cache stats, forecasts, bootstrap config.
 
-All tests use the real FastAPI route stack with SQLite in-memory DB.
+All tests use the real FastAPI route stack against real PostgreSQL (no dependency overrides).
 """
 from __future__ import annotations
 

@@ -40,26 +40,34 @@ const routes: RouteRecordRaw[] = [
       { path: 'orders/:orderId', name: 'candidate-order-detail', component: () => import('@/views/candidate/orders/OrderDetailView.vue') },
       { path: 'orders/:orderId/bargaining', name: 'candidate-bargaining', component: () => import('@/views/candidate/orders/BargainingView.vue') },
       { path: 'orders/:orderId/payment', name: 'candidate-payment', component: () => import('@/views/candidate/orders/PaymentView.vue') },
+      { path: 'orders/:orderId/after-sales', name: 'candidate-after-sales', component: () => import('@/views/candidate/orders/AfterSalesView.vue') },
       { path: 'attendance', name: 'candidate-attendance', component: () => import('@/views/candidate/attendance/ExceptionListView.vue') },
       { path: 'attendance/:exceptionId', name: 'candidate-exception-detail', component: () => import('@/views/candidate/attendance/ExceptionDetailView.vue') },
     ],
   },
 
   // ── Staff (proctor + reviewer) ────────────────────────────────────────────
+  //
+  // The staff layout admits both proctor and reviewer so they share chrome,
+  // but access to each sub-route is narrowed by `meta.role` to match the
+  // backend role policy. Proctor is the frontline attendance adjudicator
+  // and is only allowed on the exception queue/review screens; reviewer
+  // owns document / payment / order / after-sales adjudication queues
+  // (see repo/backend/src/api/routes/queue.py).
   {
     path: '/staff',
     component: () => import('@/views/staff/StaffLayout.vue'),
     meta: { requiresAuth: true, role: ['proctor', 'reviewer'] },
     children: [
       { path: '', name: 'staff-dashboard', component: () => import('@/views/staff/StaffDashboard.vue') },
-      { path: 'documents', name: 'staff-document-queue', component: () => import('@/views/staff/documents/DocumentQueueView.vue') },
-      { path: 'documents/:documentId/review', name: 'staff-document-review', component: () => import('@/views/staff/documents/DocumentReviewView.vue') },
-      { path: 'payments', name: 'staff-payment-queue', component: () => import('@/views/staff/orders/PaymentQueueView.vue') },
-      { path: 'orders', name: 'staff-order-queue', component: () => import('@/views/staff/orders/OrderQueueView.vue') },
-      { path: 'orders/:orderId', name: 'staff-order-detail', component: () => import('@/views/staff/orders/OrderDetailView.vue') },
-      { path: 'exceptions', name: 'staff-exception-queue', component: () => import('@/views/staff/attendance/ExceptionQueueView.vue') },
-      { path: 'exceptions/:exceptionId/review', name: 'staff-exception-review', component: () => import('@/views/staff/attendance/ExceptionReviewView.vue') },
-      { path: 'after-sales', name: 'staff-after-sales', component: () => import('@/views/staff/orders/AfterSalesQueueView.vue') },
+      { path: 'documents', name: 'staff-document-queue', component: () => import('@/views/staff/documents/DocumentQueueView.vue'), meta: { role: ['reviewer'] } },
+      { path: 'documents/:documentId/review', name: 'staff-document-review', component: () => import('@/views/staff/documents/DocumentReviewView.vue'), meta: { role: ['reviewer'] } },
+      { path: 'payments', name: 'staff-payment-queue', component: () => import('@/views/staff/orders/PaymentQueueView.vue'), meta: { role: ['reviewer'] } },
+      { path: 'orders', name: 'staff-order-queue', component: () => import('@/views/staff/orders/OrderQueueView.vue'), meta: { role: ['reviewer'] } },
+      { path: 'orders/:orderId', name: 'staff-order-detail', component: () => import('@/views/staff/orders/OrderDetailView.vue'), meta: { role: ['reviewer'] } },
+      { path: 'exceptions', name: 'staff-exception-queue', component: () => import('@/views/staff/attendance/ExceptionQueueView.vue'), meta: { role: ['proctor', 'reviewer'] } },
+      { path: 'exceptions/:exceptionId/review', name: 'staff-exception-review', component: () => import('@/views/staff/attendance/ExceptionReviewView.vue'), meta: { role: ['proctor', 'reviewer'] } },
+      { path: 'after-sales', name: 'staff-after-sales', component: () => import('@/views/staff/orders/AfterSalesQueueView.vue'), meta: { role: ['reviewer'] } },
     ],
   },
 

@@ -31,7 +31,9 @@ function makeException(stage: 'initial' | 'final' = 'initial'): AttendanceExcept
     id: 'exc-1', candidate_id: 'user-1', anomaly_id: 'anom-1',
     status: 'pending_initial_review', current_stage: stage,
     candidate_statement: 'I was ill that day.',
-    proofs: [], review_steps: [],
+    submitted_at: '2024-01-01T00:00:00Z',
+    review_steps: [],
+    proofs: [],
     created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
   }
 }
@@ -109,6 +111,35 @@ describe('ExceptionReviewView', () => {
     expect(wrapper.find('[data-testid="exception-review-form"]').exists()).toBe(true)
   })
 
+  it('renders proof metadata when proofs are present', async () => {
+    const wrapper = mount(ExceptionReviewView, { global: { plugins: [router] } })
+    await flushPromises()
+    const store = useAttendanceStore()
+    store.currentException = {
+      ...makeException('initial'),
+      proofs: [
+        {
+          id: 'proof-1', exception_id: 'exc-1', document_version_id: 'dv-1',
+          uploaded_by: 'user-1', description: 'Doctor note',
+          uploaded_at: '2024-01-03T00:00:00Z',
+        },
+      ],
+    }
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="exception-proofs"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="exception-proof-item"]').length).toBe(1)
+    expect(wrapper.text()).toContain('Doctor note')
+  })
+
+  it('renders empty-proofs message when no proofs are attached', async () => {
+    const wrapper = mount(ExceptionReviewView, { global: { plugins: [router] } })
+    await flushPromises()
+    const store = useAttendanceStore()
+    store.currentException = makeException('initial')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="exception-proofs-empty"]').exists()).toBe(true)
+  })
+
   it('shows prior review steps when present', async () => {
     const wrapper = mount(ExceptionReviewView, { global: { plugins: [router] } })
     await flushPromises()
@@ -120,8 +151,7 @@ describe('ExceptionReviewView', () => {
           id: 'step-1', exception_id: 'exc-1', step_order: 1,
           stage: 'initial', reviewer_id: 'rev-1', reviewer_role: 'proctor',
           decision: 'escalate', notes: 'Needs supervisor review.',
-          is_escalated: true, reviewed_at: '2024-01-02T00:00:00Z',
-          approval: null,
+          is_escalated: true, decided_at: '2024-01-02T00:00:00Z',
         },
       ],
     }

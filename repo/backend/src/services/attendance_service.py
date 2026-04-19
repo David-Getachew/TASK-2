@@ -30,6 +30,7 @@ from ..schemas.attendance import (
     AnomalyCreate,
     AnomalyRead,
     AttendanceExceptionCreate,
+    ExceptionProofRead,
     ExceptionRead,
     ExceptionReviewStepRead,
     ProofUploadResponse,
@@ -363,6 +364,18 @@ def _exception_to_read(exception) -> ExceptionRead:
                 is_escalated=s.is_escalated,
             )
         )
+    proofs = []
+    for p in sorted(exception.proofs or [], key=lambda x: x.uploaded_at):
+        proofs.append(
+            ExceptionProofRead(
+                id=p.id,
+                exception_id=p.exception_id,
+                document_version_id=p.document_version_id,
+                uploaded_by=p.uploaded_by,
+                uploaded_at=p.uploaded_at,
+                description=p.description,
+            )
+        )
     return ExceptionRead(
         id=exception.id,
         anomaly_id=exception.anomaly_id,
@@ -374,4 +387,5 @@ def _exception_to_read(exception) -> ExceptionRead:
         created_at=exception.created_at,
         updated_at=exception.updated_at,
         review_steps=steps,
+        proofs=proofs,
     )

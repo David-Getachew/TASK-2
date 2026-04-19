@@ -45,6 +45,16 @@ vi.mock('@/services/candidateApi', () => ({
   addTransferPreference: vi.fn(),
   updateTransferPreference: vi.fn(),
   createProfileForUser: vi.fn(),
+  createSelfProfile: vi.fn().mockResolvedValue({
+    id: 'cand-new',
+    user_id: 'user-1',
+    preferred_name: null,
+    application_year: null,
+    application_status: null,
+    program_code: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }),
 }))
 
 const router = createRouter({
@@ -141,6 +151,19 @@ describe('DocumentListView', () => {
     auth.candidateId = null
     const wrapper = mount(DocumentListView, { global: { plugins: [router] } })
     await flushPromises()
-    expect(wrapper.text()).toContain('Candidate profile not found')
+    expect(wrapper.text()).toContain('Candidate profile not yet initialized')
+    expect(wrapper.find('[data-testid="candidate-self-init-btn"]').exists()).toBe(true)
+  })
+
+  it('clicking init button calls createSelfProfile and sets candidateId', async () => {
+    const auth = useAuthStore()
+    auth.candidateId = null
+    const wrapper = mount(DocumentListView, { global: { plugins: [router] } })
+    await flushPromises()
+    const btn = wrapper.find('[data-testid="candidate-self-init-btn"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    await flushPromises()
+    expect(auth.candidateId).toBe('cand-new')
   })
 })

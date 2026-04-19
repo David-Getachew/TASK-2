@@ -53,6 +53,20 @@ export const useAuthStore = defineStore('auth', () => {
       })
       applyLoginResponse(resp)
       await loadSession()
+      // Enroll device key immediately after session bootstrap so signed
+      // mutations (document upload, order/attendance state changes,
+      // password change) have a persisted device_id before they are
+      // issued. Enrollment is idempotent: if the key already has a
+      // device_id it returns that id without re-hitting the challenge
+      // endpoint. Failure here is non-fatal — we surface it via
+      // lastError so the UI can prompt re-enrollment, but we do not
+      // roll back the successful login.
+      try {
+        const { useDeviceKey } = await import('@/composables/useDeviceKey')
+        await useDeviceKey().ensureEnrolled()
+      } catch (enrollErr) {
+        lastError.value = (enrollErr as Error).message
+      }
     } catch (err) {
       if (err instanceof HttpError) {
         lastError.value = err.envelope?.error?.message ?? err.message
@@ -76,7 +90,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function refresh(): Promise<boolean> {
     if (!tokens.value?.refresh_token) return false
     try {
-      const resp = await authApi.refresh(tokens.value.refresh_token)
+      const resp = await authApi.refresh({
+        refresh_token: tokens.value.refresh_token,
+        nonce: generateNonce(),
+        timestamp: currentTimestamp(),
+      })
       tokens.value = {
         access_token: resp.access_token,
         refresh_token: resp.refresh_token,
@@ -114,6 +132,10 @@ export const useAuthStore = defineStore('auth', () => {
     deviceId.value = id
   }
 
+  function setCandidateId(id: string | null): void {
+    candidateId.value = id
+  }
+
   return {
     user,
     role,
@@ -130,5 +152,6 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession,
     setTokens,
     setDeviceId,
+    setCandidateId,
   }
 })

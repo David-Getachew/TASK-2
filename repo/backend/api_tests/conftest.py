@@ -1,18 +1,22 @@
 """
 Shared fixtures for backend API tests.
 
-Provides an async SQLite database (in-memory, one engine per test) with
-compiler hooks that downgrade PostgreSQL-specific types (UUID, JSONB,
-INET) into SQLite-compatible equivalents. Each test gets a fresh schema
-and a `get_db` dependency override so it exercises the real FastAPI
-route stack without touching Postgres.
+Targets the real Postgres database configured via DATABASE_URL, with no
+FastAPI dependency overrides. Route handlers run against the same async
+engine the production app wires at import — `get_db` is the real one,
+so tests exercise the full production DB path (asyncpg + Postgres types,
+row-level uniqueness, server-side defaults, JSONB, UUID).
+
+Schema is created once per pytest session via `Base.metadata.create_all`
+against a sync psycopg2 engine. Each test truncates all public tables
+before running for isolation. The app's async engine is reconfigured to
+use `NullPool` so asyncpg connections don't cross pytest-asyncio's
+per-test event loop boundaries.
 """
 from __future__ import annotations
 
 import base64
 import hashlib
-import os
-import tempfile
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncIterator
@@ -22,36 +26,23 @@ import pytest_asyncio
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.pool import StaticPool
-
-
-# SQLite compatibility: translate PG-specific column types to something SQLite understands.
-@compiles(UUID, "sqlite")
-def _sqlite_uuid(type_, compiler, **kw):
-    return "CHAR(36)"
-
-
-@compiles(JSONB, "sqlite")
-def _sqlite_jsonb(type_, compiler, **kw):
-    return "JSON"
+from sqlalchemy.pool import NullPool
 
 
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch):
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql+psycopg2://test:test@localhost/test"
-    )
+    # DATABASE_URL is expected to be set externally (run_tests.sh / docker env)
+    # so src.persistence.database binds the real Postgres engine at import.
     monkeypatch.setenv("SECRET_KEY", "a" * 32)
     monkeypatch.setenv("ENVIRONMENT", "development")
     monkeypatch.setenv("KEK_CURRENT_VERSION", "v1")
 
 
-@pytest_asyncio.fixture
-async def test_engine():
-    # Force-import all models so Base.metadata contains every table
+def pytest_configure(config):
+    """One-shot session setup: create schema, reconfigure engine to NullPool."""
+    # Force-import all models so Base.metadata contains every table.
     from src.persistence.models import (  # noqa: F401
         attendance,
         auth,
@@ -62,23 +53,62 @@ async def test_engine():
         order,
     )
     from src.persistence.models.base import Base
+    from src.config import get_settings
 
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    settings = get_settings()
+    sync_url = settings.database_url
+    if "+asyncpg" in sync_url:
+        sync_url = sync_url.replace("+asyncpg", "+psycopg2")
+    sync_engine = create_engine(sync_url, future=True)
     try:
-        yield engine
+        Base.metadata.create_all(sync_engine)
     finally:
-        await engine.dispose()
+        sync_engine.dispose()
+
+    # Swap the app's async engine to NullPool. asyncpg connections are
+    # bound to the event loop that created them; pytest-asyncio gives each
+    # test a fresh loop, so a pooled connection from a previous test would
+    # raise "attached to a different loop" when reused.
+    import src.persistence.database as db_mod
+    new_engine = create_async_engine(db_mod._async_url, poolclass=NullPool)
+    db_mod.engine = new_engine
+    db_mod.AsyncSessionLocal = async_sessionmaker(
+        new_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
+    )
+
+
+async def _truncate_all(engine) -> None:
+    async with engine.begin() as conn:
+        def _names(sync_conn):
+            from sqlalchemy import inspect
+            return inspect(sync_conn).get_table_names()
+        names = await conn.run_sync(_names)
+        names = [n for n in names if n != "alembic_version"]
+        if not names:
+            return
+        rendered = ", ".join(f'"{n}"' for n in names)
+        await conn.execute(text(f"TRUNCATE TABLE {rendered} RESTART IDENTITY CASCADE"))
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _clean_tables():
+    from src.persistence.database import engine
+    await _truncate_all(engine)
+    yield
 
 
 @pytest_asyncio.fixture
-async def test_session_factory(test_engine):
-    return async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+async def test_engine():
+    from src.persistence.database import engine
+    yield engine
+
+
+@pytest_asyncio.fixture
+async def test_session_factory():
+    """Return the app's session factory so test seed-data and app routes
+    share one engine/database."""
+    from src.persistence.database import AsyncSessionLocal
+    return AsyncSessionLocal
 
 
 @pytest_asyncio.fixture
@@ -89,53 +119,25 @@ async def db_session(test_session_factory) -> AsyncIterator[AsyncSession]:
 
 
 @pytest_asyncio.fixture
-async def client(test_session_factory, _install_jwt_keys, _install_kek):
-    """Test client with database override — full signing enforcement active."""
+async def client(_install_jwt_keys, _install_kek):
+    """Test HTTP client — real get_db, real Postgres, no overrides."""
     from src.main import app
-    from src.persistence.database import get_db
 
-    async def _override_get_db():
-        async with test_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-
-    app.dependency_overrides[get_db] = _override_get_db
-    try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as c:
-            yield c
-    finally:
-        app.dependency_overrides.pop(get_db, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
 
 
 @pytest_asyncio.fixture
-async def client_raw(test_session_factory, _install_jwt_keys, _install_kek):
-    """Test client with NO signing bypass — use for signed-route rejection tests."""
+async def client_raw(_install_jwt_keys, _install_kek):
+    """Alias of `client` — kept for signed-route rejection-test naming."""
     from src.main import app
-    from src.persistence.database import get_db
 
-    async def _override_get_db():
-        async with test_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-
-    app.dependency_overrides[get_db] = _override_get_db
-    try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as c:
-            yield c
-    finally:
-        app.dependency_overrides.pop(get_db, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        yield c
 
 
 @pytest.fixture
@@ -150,6 +152,8 @@ def _install_jwt_keys():
 
 @pytest.fixture
 def _install_kek():
+    import os
+
     from src.security import encryption
 
     encryption.install_kek("v1", os.urandom(32))

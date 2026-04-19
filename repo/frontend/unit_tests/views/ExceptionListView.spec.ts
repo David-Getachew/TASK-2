@@ -32,7 +32,9 @@ function makeException(id: string): AttendanceException {
     id, candidate_id: 'user-1', anomaly_id: 'anom-1',
     status: 'pending_proof', current_stage: 'initial',
     candidate_statement: 'I was absent due to illness.',
-    proofs: [], review_steps: [],
+    submitted_at: '2024-01-01T00:00:00Z',
+    review_steps: [],
+    proofs: [],
     created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
   }
 }

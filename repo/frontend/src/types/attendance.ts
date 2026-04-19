@@ -33,7 +33,8 @@ export interface ExceptionProof {
   document_version_id: string
   uploaded_by: string
   description: string | null
-  created_at: string
+  // BE `ExceptionProofRead.uploaded_at` is the canonical upload timestamp.
+  uploaded_at: string
 }
 
 export interface ExceptionApproval {
@@ -56,7 +57,9 @@ export interface ExceptionReviewStep {
   decision: 'approve' | 'reject' | 'escalate'
   notes: string | null
   is_escalated: boolean
-  reviewed_at: string
+  // Matches backend `ExceptionReviewStepRead.decided_at`. BE emits the
+  // timestamp the decision was recorded; views must read this field.
+  decided_at: string
 }
 
 export interface AttendanceException {
@@ -65,7 +68,12 @@ export interface AttendanceException {
   candidate_id: string
   status: ExceptionStatus
   current_stage: ReviewStage
-  candidate_statement: string
+  candidate_statement: string | null
+  // Matches backend `ExceptionRead.submitted_at` — nullable until candidate
+  // submits the exception (moves out of `draft`).
+  submitted_at: string | null
+  // BE `ExceptionRead.proofs` — embedded proof metadata so reviewers can
+  // inspect evidence without a second round-trip.
   proofs: ExceptionProof[]
   review_steps: ExceptionReviewStep[]
   created_at: string

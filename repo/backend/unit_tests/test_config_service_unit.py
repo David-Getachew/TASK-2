@@ -89,7 +89,7 @@ async def test_resolve_flags_inactive_cohort_ignored():
     svc.repo = AsyncMock()
 
     base_flag = MagicMock()
-    base_flag.key = "rollback_enabled"
+    base_flag.key = "rollback_on_refund"
     base_flag.value = "true"
     svc.repo.list_flags = AsyncMock(return_value=[base_flag])
 
@@ -99,11 +99,11 @@ async def test_resolve_flags_inactive_cohort_ignored():
 
     cohort = MagicMock()
     cohort.is_active = False
-    cohort.flag_overrides = {"rollback_enabled": "false"}
+    cohort.flag_overrides = {"rollback_on_refund": "false"}
     svc.repo.get_cohort = AsyncMock(return_value=cohort)
 
     resolved, cohort_key = await svc.resolve_flags_for_user(uuid.uuid4())
-    assert resolved["rollback_enabled"] == "true"
+    assert resolved["rollback_on_refund"] == "true"
     assert cohort_key is None
 
 
@@ -142,9 +142,9 @@ async def test_create_cohort_requires_admin():
 # ── Bootstrap config ──────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_bootstrap_config_produces_signature():
-    """bootstrap_config returns a non-empty signature."""
-    from src.services.config_service import ConfigService
+async def test_bootstrap_config_produces_hmac_signature():
+    """bootstrap_config returns a keyed HMAC-SHA256 signature that verifies."""
+    from src.services.config_service import ConfigService, verify_bootstrap_signature
 
     session = AsyncMock()
     svc = ConfigService(session)
@@ -155,6 +155,35 @@ async def test_bootstrap_config_produces_signature():
     uid = uuid.uuid4()
     config = await svc.bootstrap_config(uid, "candidate")
     assert config.signature
-    assert len(config.signature) == 32
+    # HMAC-SHA256 hex digest is always 64 characters.
+    assert len(config.signature) == 64
     assert config.resolved_flags == {}
     assert config.cohort_key is None
+
+    # The signature must verify against the exact payload it was computed over.
+    assert verify_bootstrap_signature(
+        user_id=config.user_id,
+        role=config.role,
+        cohort_key=config.cohort_key,
+        resolved=config.resolved_flags,
+        issued_at=config.issued_at,
+        signature=config.signature,
+    )
+
+    # Tampering with any payload field must break verification.
+    assert not verify_bootstrap_signature(
+        user_id=config.user_id,
+        role="admin",
+        cohort_key=config.cohort_key,
+        resolved=config.resolved_flags,
+        issued_at=config.issued_at,
+        signature=config.signature,
+    )
+    assert not verify_bootstrap_signature(
+        user_id=config.user_id,
+        role=config.role,
+        cohort_key=config.cohort_key,
+        resolved={"bargaining_enabled": "true"},
+        issued_at=config.issued_at,
+        signature=config.signature,
+    )

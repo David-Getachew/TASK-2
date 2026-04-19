@@ -57,14 +57,16 @@ async function submit(): Promise<void> {
         <strong>Candidate Statement:</strong> {{ store.currentException.candidate_statement }}
       </p>
 
-      <section v-if="store.currentException.proofs.length > 0" class="proofs-section">
+      <section v-if="(store.currentException.proofs?.length ?? 0) > 0" class="proofs-section" data-testid="exception-proofs">
         <h3>Proof Documents</h3>
         <ul>
-          <li v-for="proof in store.currentException.proofs" :key="proof.id">
-            Uploaded by {{ proof.uploaded_by }} at <TimestampDisplay :value="proof.created_at" />
+          <li v-for="proof in (store.currentException.proofs ?? [])" :key="proof.id" data-testid="exception-proof-item">
+            Uploaded by {{ proof.uploaded_by }} at <TimestampDisplay :value="proof.uploaded_at" />
+            <span v-if="proof.description"> — {{ proof.description }}</span>
           </li>
         </ul>
       </section>
+      <p v-else class="proofs-empty" data-testid="exception-proofs-empty">No proof documents attached.</p>
 
       <section v-if="store.currentException.review_steps.length > 0" class="prior-reviews">
         <h3>Prior Review Steps</h3>

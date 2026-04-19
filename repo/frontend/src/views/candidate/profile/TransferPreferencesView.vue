@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCandidateStore } from '@/stores/candidate'
 import BannerAlert from '@/components/common/BannerAlert.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import CandidateProfileInitBanner from '@/components/candidate/CandidateProfileInitBanner.vue'
 import type { TransferPreferenceCreate } from '@/types/candidate'
 
 const auth = useAuthStore()
@@ -24,6 +25,10 @@ onMounted(async () => {
   await store.loadTransferPreferences(candidateId.value)
 })
 
+async function onProfileInitialized(id: string): Promise<void> {
+  await store.loadTransferPreferences(id)
+}
+
 async function submit(): Promise<void> {
   if (!candidateId.value) return
   saved.value = false
@@ -43,10 +48,9 @@ async function submit(): Promise<void> {
     <h2>Transfer Preferences</h2>
     <router-link to="/candidate/profile" class="back-link">← Back to Profile</router-link>
 
-    <BannerAlert
+    <CandidateProfileInitBanner
       v-if="missingProfile"
-      type="warning"
-      message="Candidate profile not found — please contact admissions staff to initialize your record."
+      @initialized="onProfileInitialized"
     />
 
     <BannerAlert v-if="saved" type="success" message="Preference saved." :dismissible="true" @dismiss="saved = false" />

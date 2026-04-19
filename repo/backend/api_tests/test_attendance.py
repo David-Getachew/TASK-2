@@ -149,6 +149,34 @@ async def test_upload_proof_transitions_status(client, seeded_user, seeded_revie
 
 
 @pytest.mark.asyncio
+async def test_exception_read_embeds_proof_metadata(
+    client, seeded_user, seeded_reviewer, tmp_file_store
+):
+    """ExceptionRead payload must embed proof metadata so reviewers can
+    inspect evidence without a second round-trip. Covers audit-3 High #4.
+    """
+    rev_token = await login(client, seeded_reviewer)
+    await _create_profile(client, rev_token, seeded_user["id"])
+
+    cand_token = await login(client, seeded_user)
+    exc_id = await _create_exception(client, cand_token, "Illness with documentation.")
+    await _upload_proof(client, cand_token, exc_id)
+
+    get_resp = await client.get(
+        f"/api/v1/attendance/exceptions/{exc_id}",
+        headers={"Authorization": f"Bearer {rev_token}"},
+    )
+    assert get_resp.status_code == 200
+    body = get_resp.json()["data"]
+    assert "proofs" in body, "ExceptionRead must expose 'proofs'"
+    assert isinstance(body["proofs"], list)
+    assert len(body["proofs"]) == 1
+    proof = body["proofs"][0]
+    for field in ("id", "exception_id", "document_version_id", "uploaded_by", "uploaded_at"):
+        assert field in proof, f"proof metadata missing '{field}'"
+
+
+@pytest.mark.asyncio
 async def test_review_initial_approve(client, seeded_user, seeded_reviewer, seeded_proctor, tmp_file_store):
     """Proctor approves at initial stage → status=approved."""
     rev_token = await login(client, seeded_reviewer)

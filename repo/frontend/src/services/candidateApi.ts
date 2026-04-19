@@ -19,6 +19,14 @@ export async function createProfileForUser(userId: string): Promise<CandidatePro
   })
 }
 
+export async function createSelfProfile(): Promise<CandidateProfile> {
+  return request<CandidateProfile>({
+    method: 'POST',
+    path: `/api/v1/candidates/self`,
+    body: null,
+  })
+}
+
 export function getProfile(candidateId: string): Promise<CandidateProfile> {
   return request<CandidateProfile>({
     method: 'GET',

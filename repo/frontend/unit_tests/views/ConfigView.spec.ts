@@ -10,7 +10,7 @@ import { useSessionStore } from '@/stores/session'
 vi.mock('@/services/adminApi', () => ({
   getFlags: vi.fn().mockResolvedValue([
     { id: 'f-1', key: 'bargaining_enabled', value: 'true', value_type: 'boolean', description: null, updated_by: null, updated_at: new Date().toISOString() },
-    { id: 'f-2', key: 'rollback_enabled', value: 'false', value_type: 'boolean', description: null, updated_by: null, updated_at: new Date().toISOString() },
+    { id: 'f-2', key: 'rollback_on_refund', value: 'false', value_type: 'boolean', description: null, updated_by: null, updated_at: new Date().toISOString() },
   ]),
   updateFlag: vi.fn().mockResolvedValue({ id: 'f-1', key: 'bargaining_enabled', value: 'false', value_type: 'boolean', description: null, updated_by: null, updated_at: new Date().toISOString() }),
   listCohorts: vi.fn().mockResolvedValue([]),
@@ -42,7 +42,7 @@ describe('ConfigView', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="flag-table"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('bargaining_enabled')
-    expect(wrapper.text()).toContain('rollback_enabled')
+    expect(wrapper.text()).toContain('rollback_on_refund')
   })
 
   it('shows edit form when edit button is clicked', async () => {

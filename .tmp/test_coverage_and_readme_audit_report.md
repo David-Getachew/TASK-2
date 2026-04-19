@@ -1,330 +1,372 @@
 # Test Coverage Audit
 
-## Scope and Method
-- Audit mode: static inspection only.
-- No code/test/script/container execution performed for this audit.
-- Inspected files:
-  - `repo/backend/src/main.py`
-  - `repo/backend/src/api/routes/*.py`
-  - `repo/backend/api_tests/*.py`
-  - `repo/backend/unit_tests/*.py`
-  - `repo/frontend/unit_tests/**/*.spec.ts`
-  - `repo/frontend/e2e/*.spec.ts`
-  - `repo/frontend/vitest.config.ts`
-  - `repo/frontend/package.json`
-  - `repo/run_tests.sh`
-  - `repo/README.md`
-
 ## Project Type Detection
-- README declares: full-stack platform (`"full-stack"` in title/intro).
-- Effective project type: **fullstack**.
+- README top describes the system as "A full-stack offline-ready platform" in repo/README.md:3.
+- Required exact label set (backend/fullstack/web/android/ios/desktop) is not explicitly declared as a strict token at top.
+- Inferred project type (strict mode): fullstack.
 
 ## Backend Endpoint Inventory
-- Deterministic route count evidence:
-  - `repo/backend/src/api/routes/*.py`: 83 HTTP route decorators.
-  - `repo/backend/src/main.py`: 2 additional internal endpoints.
-- **Total endpoints: 85**.
+Resolved from FastAPI route wiring in repo/backend/src/api/routes/__init__.py and repo/backend/src/main.py.
+
+| # | Endpoint (METHOD PATH) | Source |
+|---|---|---|
+| 1 | GET /api/v1/internal/health | repo/backend/src/main.py (health) |
+| 2 | GET /api/v1/internal/metrics | repo/backend/src/main.py (metrics_endpoint) |
+| 3 | POST /api/v1/auth/login | repo/backend/src/api/routes/auth.py (login) |
+| 4 | POST /api/v1/auth/refresh | repo/backend/src/api/routes/auth.py (refresh) |
+| 5 | POST /api/v1/auth/logout | repo/backend/src/api/routes/auth.py (logout) |
+| 6 | GET /api/v1/auth/me | repo/backend/src/api/routes/auth.py (me) |
+| 7 | POST /api/v1/auth/password/change | repo/backend/src/api/routes/auth.py (change_password) |
+| 8 | POST /api/v1/auth/device/challenge | repo/backend/src/api/routes/auth.py (device_challenge) |
+| 9 | POST /api/v1/auth/device/activate | repo/backend/src/api/routes/auth.py (device_activate) |
+| 10 | POST /api/v1/auth/device/register | repo/backend/src/api/routes/auth.py (device_register) |
+| 11 | POST /api/v1/auth/device/{device_id}/rotate | repo/backend/src/api/routes/auth.py (device_rotate) |
+| 12 | DELETE /api/v1/auth/device/{device_id} | repo/backend/src/api/routes/auth.py (device_revoke) |
+| 13 | POST /api/v1/idp/token | repo/backend/src/api/routes/idp.py (issue_token) |
+| 14 | GET /api/v1/idp/jwks | repo/backend/src/api/routes/idp.py (jwks) |
+| 15 | GET /api/v1/candidates | repo/backend/src/api/routes/candidates.py (list_candidate_profiles) |
+| 16 | POST /api/v1/candidates | repo/backend/src/api/routes/candidates.py (create_candidate_profile) |
+| 17 | GET /api/v1/candidates/{candidate_id} | repo/backend/src/api/routes/candidates.py (get_candidate_profile) |
+| 18 | PATCH /api/v1/candidates/{candidate_id} | repo/backend/src/api/routes/candidates.py (update_candidate_profile) |
+| 19 | GET /api/v1/candidates/{candidate_id}/exam-scores | repo/backend/src/api/routes/candidates.py (list_exam_scores) |
+| 20 | POST /api/v1/candidates/{candidate_id}/exam-scores | repo/backend/src/api/routes/candidates.py (add_exam_score) |
+| 21 | GET /api/v1/candidates/{candidate_id}/transfer-preferences | repo/backend/src/api/routes/candidates.py (list_transfer_preferences) |
+| 22 | POST /api/v1/candidates/{candidate_id}/transfer-preferences | repo/backend/src/api/routes/candidates.py (add_transfer_preference) |
+| 23 | PATCH /api/v1/candidates/{candidate_id}/transfer-preferences/{pref_id} | repo/backend/src/api/routes/candidates.py (update_transfer_preference) |
+| 24 | GET /api/v1/candidates/{candidate_id}/checklist | repo/backend/src/api/routes/candidates.py (get_checklist) |
+| 25 | POST /api/v1/candidates/{candidate_id}/documents/upload | repo/backend/src/api/routes/documents.py (upload_document) |
+| 26 | GET /api/v1/candidates/{candidate_id}/documents | repo/backend/src/api/routes/documents.py (list_documents) |
+| 27 | GET /api/v1/candidates/{candidate_id}/documents/{document_id} | repo/backend/src/api/routes/documents.py (get_document) |
+| 28 | POST /api/v1/documents/{document_id}/review | repo/backend/src/api/routes/documents.py (review_document) |
+| 29 | GET /api/v1/documents/{document_id}/download | repo/backend/src/api/routes/documents.py (download_document) |
+| 30 | GET /api/v1/services | repo/backend/src/api/routes/orders.py (list_service_items) |
+| 31 | POST /api/v1/orders | repo/backend/src/api/routes/orders.py (create_order) |
+| 32 | GET /api/v1/orders | repo/backend/src/api/routes/orders.py (list_orders) |
+| 33 | GET /api/v1/orders/{order_id} | repo/backend/src/api/routes/orders.py (get_order) |
+| 34 | POST /api/v1/orders/{order_id}/cancel | repo/backend/src/api/routes/orders.py (cancel_order) |
+| 35 | POST /api/v1/orders/{order_id}/confirm-receipt | repo/backend/src/api/routes/orders.py (confirm_receipt) |
+| 36 | POST /api/v1/orders/{order_id}/advance | repo/backend/src/api/routes/orders.py (advance_order) |
+| 37 | POST /api/v1/orders/{order_id}/payment/proof | repo/backend/src/api/routes/payment.py (submit_payment_proof) |
+| 38 | POST /api/v1/orders/{order_id}/payment/confirm | repo/backend/src/api/routes/payment.py (confirm_payment) |
+| 39 | POST /api/v1/orders/{order_id}/voucher | repo/backend/src/api/routes/payment.py (issue_voucher) |
+| 40 | GET /api/v1/orders/{order_id}/voucher | repo/backend/src/api/routes/payment.py (get_voucher) |
+| 41 | POST /api/v1/orders/{order_id}/milestones | repo/backend/src/api/routes/payment.py (add_milestone) |
+| 42 | GET /api/v1/orders/{order_id}/milestones | repo/backend/src/api/routes/payment.py (list_milestones) |
+| 43 | POST /api/v1/orders/{order_id}/bargaining/offer | repo/backend/src/api/routes/bargaining.py (submit_offer) |
+| 44 | GET /api/v1/orders/{order_id}/bargaining | repo/backend/src/api/routes/bargaining.py (get_bargaining_thread) |
+| 45 | POST /api/v1/orders/{order_id}/bargaining/accept | repo/backend/src/api/routes/bargaining.py (accept_offer) |
+| 46 | POST /api/v1/orders/{order_id}/bargaining/counter | repo/backend/src/api/routes/bargaining.py (counter_offer) |
+| 47 | POST /api/v1/orders/{order_id}/bargaining/accept-counter | repo/backend/src/api/routes/bargaining.py (accept_counter) |
+| 48 | POST /api/v1/orders/{order_id}/refund | repo/backend/src/api/routes/refunds.py (initiate_refund) |
+| 49 | POST /api/v1/orders/{order_id}/refund/process | repo/backend/src/api/routes/refunds.py (process_refund) |
+| 50 | GET /api/v1/orders/{order_id}/refund | repo/backend/src/api/routes/refunds.py (get_refund) |
+| 51 | POST /api/v1/orders/{order_id}/after-sales | repo/backend/src/api/routes/refunds.py (submit_after_sales) |
+| 52 | GET /api/v1/orders/{order_id}/after-sales | repo/backend/src/api/routes/refunds.py (list_after_sales) |
+| 53 | POST /api/v1/orders/{order_id}/after-sales/{request_id}/resolve | repo/backend/src/api/routes/refunds.py (resolve_after_sales) |
+| 54 | GET /api/v1/queue/documents | repo/backend/src/api/routes/queue.py (pending_documents) |
+| 55 | GET /api/v1/queue/payments | repo/backend/src/api/routes/queue.py (pending_payments) |
+| 56 | GET /api/v1/queue/orders | repo/backend/src/api/routes/queue.py (pending_orders) |
+| 57 | GET /api/v1/queue/exceptions | repo/backend/src/api/routes/queue.py (pending_exceptions) |
+| 58 | GET /api/v1/queue/after-sales | repo/backend/src/api/routes/queue.py (pending_after_sales) |
+| 59 | POST /api/v1/attendance/anomalies | repo/backend/src/api/routes/attendance.py (flag_anomaly) |
+| 60 | GET /api/v1/attendance/anomalies | repo/backend/src/api/routes/attendance.py (list_anomalies) |
+| 61 | POST /api/v1/attendance/exceptions | repo/backend/src/api/routes/attendance.py (create_exception) |
+| 62 | GET /api/v1/attendance/exceptions | repo/backend/src/api/routes/attendance.py (list_exceptions) |
+| 63 | GET /api/v1/attendance/exceptions/{exception_id} | repo/backend/src/api/routes/attendance.py (get_exception) |
+| 64 | POST /api/v1/attendance/exceptions/{exception_id}/proof | repo/backend/src/api/routes/attendance.py (upload_proof) |
+| 65 | POST /api/v1/attendance/exceptions/{exception_id}/review | repo/backend/src/api/routes/attendance.py (submit_exception_review) |
+| 66 | GET /api/v1/admin/feature-flags | repo/backend/src/api/routes/admin.py (list_feature_flags) |
+| 67 | POST /api/v1/admin/feature-flags | repo/backend/src/api/routes/admin.py (create_feature_flag) |
+| 68 | PATCH /api/v1/admin/feature-flags/{key} | repo/backend/src/api/routes/admin.py (update_feature_flag) |
+| 69 | GET /api/v1/admin/cohorts | repo/backend/src/api/routes/admin.py (list_cohorts) |
+| 70 | POST /api/v1/admin/cohorts | repo/backend/src/api/routes/admin.py (create_cohort) |
+| 71 | POST /api/v1/admin/cohorts/{cohort_id}/assign | repo/backend/src/api/routes/admin.py (assign_user_to_cohort) |
+| 72 | DELETE /api/v1/admin/cohorts/{cohort_id}/users/{user_id} | repo/backend/src/api/routes/admin.py (remove_user_from_cohort) |
+| 73 | GET /api/v1/admin/config/bootstrap/{user_id} | repo/backend/src/api/routes/admin.py (get_bootstrap_config) |
+| 74 | GET /api/v1/admin/audit | repo/backend/src/api/routes/admin.py (search_audit) |
+| 75 | GET /api/v1/admin/rbac-policy | repo/backend/src/api/routes/admin.py (get_rbac_policy) |
+| 76 | GET /api/v1/admin/masking-policy | repo/backend/src/api/routes/admin.py (get_masking_policy) |
+| 77 | POST /api/v1/admin/exports | repo/backend/src/api/routes/admin.py (create_export) |
+| 78 | GET /api/v1/admin/exports | repo/backend/src/api/routes/admin.py (list_exports) |
+| 79 | GET /api/v1/admin/exports/{export_id}/download | repo/backend/src/api/routes/admin.py (download_export) |
+| 80 | GET /api/v1/admin/metrics/summary | repo/backend/src/api/routes/admin.py (get_metrics_summary) |
+| 81 | GET /api/v1/admin/traces | repo/backend/src/api/routes/admin.py (list_traces) |
+| 82 | GET /api/v1/admin/cache-stats | repo/backend/src/api/routes/admin.py (get_cache_stats) |
+| 83 | GET /api/v1/admin/access-logs | repo/backend/src/api/routes/admin.py (get_access_log_summaries) |
+| 84 | GET /api/v1/admin/forecasts | repo/backend/src/api/routes/admin.py (list_forecasts) |
+| 85 | POST /api/v1/admin/forecasts/compute | repo/backend/src/api/routes/admin.py (trigger_forecast) |
 
 ## API Test Mapping Table
+Coverage criterion: exact METHOD + PATH request call to routed handler.
 
-Legend:
-- Covered: `yes` means at least one test sends request to exact method+path.
-- Type:
-  - `true no-mock HTTP`
-  - `HTTP with mocking`
-  - `unit-only / indirect`
-
-| Endpoint (METHOD PATH) | Covered | Type | Test files | Evidence (function) |
+| Endpoint | Covered | Test Type | Test Files | Evidence |
 |---|---|---|---|---|
-| POST /api/v1/auth/login | yes | HTTP with mocking | `backend/api_tests/test_auth_login.py` | `test_login_happy_path` |
-| POST /api/v1/auth/refresh | yes | HTTP with mocking | `backend/api_tests/test_auth_refresh.py` | `test_refresh_rotates_token` |
-| POST /api/v1/auth/logout | yes | HTTP with mocking | `backend/api_tests/test_auth_logout.py` | `test_logout_invalidates_family` |
-| GET /api/v1/auth/me | yes | HTTP with mocking | `backend/api_tests/test_auth_me.py` | `test_me_returns_profile_for_authenticated_user` |
-| POST /api/v1/auth/password/change | yes | HTTP with mocking | `backend/api_tests/test_auth_password_change.py` | `test_password_change_requires_signature_headers` |
-| POST /api/v1/auth/device/challenge | yes | HTTP with mocking | `backend/api_tests/test_device_flow.py` | `test_challenge_activate_register_roundtrip` |
-| POST /api/v1/auth/device/activate | yes | HTTP with mocking | `backend/api_tests/test_device_flow.py` | `test_challenge_activate_register_roundtrip` |
-| POST /api/v1/auth/device/register | yes | HTTP with mocking | `backend/api_tests/test_device_flow.py` | `test_register_revoke_roundtrip` |
-| POST /api/v1/auth/device/{device_id}/rotate | yes | HTTP with mocking | `backend/api_tests/test_device_flow.py` | `test_device_rotate_roundtrip` |
-| DELETE /api/v1/auth/device/{device_id} | yes | HTTP with mocking | `backend/api_tests/test_device_flow.py` | `test_register_revoke_roundtrip` |
-| POST /api/v1/idp/token | yes | HTTP with mocking | `backend/api_tests/test_idp_token.py` | `test_valid_client_issues_verifiable_token` |
-| GET /api/v1/idp/jwks | yes | HTTP with mocking | `backend/api_tests/test_idp_jwks.py` | `test_jwks_is_well_formed` |
-| GET /api/v1/candidates | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_list_candidates_reviewer_ok` |
-| POST /api/v1/candidates | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_create_profile_candidate` |
-| GET /api/v1/candidates/{candidate_id} | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_get_profile_row_scoped` |
-| PATCH /api/v1/candidates/{candidate_id} | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_update_profile_writes_history` |
-| GET /api/v1/candidates/{candidate_id}/exam-scores | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_get_exam_scores` |
-| POST /api/v1/candidates/{candidate_id}/exam-scores | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_add_exam_score` |
-| GET /api/v1/candidates/{candidate_id}/transfer-preferences | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_transfer_preferences_create_and_list` |
-| POST /api/v1/candidates/{candidate_id}/transfer-preferences | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_transfer_preferences_create_and_list` |
-| PATCH /api/v1/candidates/{candidate_id}/transfer-preferences/{pref_id} | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_transfer_preferences_update` |
-| GET /api/v1/candidates/{candidate_id}/checklist | yes | HTTP with mocking | `backend/api_tests/test_candidates.py` | `test_checklist_returns_items` |
-| POST /api/v1/candidates/{candidate_id}/documents/upload | yes | HTTP with mocking | `backend/api_tests/test_documents.py` | `test_upload_valid_pdf` |
-| GET /api/v1/candidates/{candidate_id}/documents | yes | HTTP with mocking | `backend/api_tests/test_documents.py` | `test_document_read_includes_requirement_code_when_bound` |
-| GET /api/v1/candidates/{candidate_id}/documents/{document_id} | yes | HTTP with mocking | `backend/api_tests/test_documents.py` | `test_review_approve` |
-| POST /api/v1/documents/{document_id}/review | yes | HTTP with mocking | `backend/api_tests/test_documents.py` | `test_review_approve` |
-| GET /api/v1/documents/{document_id}/download | yes | HTTP with mocking | `backend/api_tests/test_documents.py` | `test_download_reviewer_allowed` |
-| GET /api/v1/services | yes | HTTP with mocking | `backend/api_tests/test_orders.py` | `test_list_service_items` |
-| POST /api/v1/orders | yes | HTTP with mocking | `backend/api_tests/test_orders.py` | `test_create_order_fixed_price` |
-| GET /api/v1/orders | yes | HTTP with mocking | `backend/api_tests/test_orders.py` | `test_order_row_scope` |
-| GET /api/v1/orders/{order_id} | yes | HTTP with mocking | `backend/api_tests/test_orders.py` | `test_order_row_scope` |
-| POST /api/v1/orders/{order_id}/cancel | yes | HTTP with mocking | `backend/api_tests/test_orders.py` | `test_cancel_order` |
-| POST /api/v1/orders/{order_id}/confirm-receipt | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_confirm_receipt_completes_order` |
-| POST /api/v1/orders/{order_id}/advance | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_confirm_receipt_completes_order` |
-| POST /api/v1/orders/{order_id}/payment/proof | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_submit_proof` |
-| POST /api/v1/orders/{order_id}/payment/confirm | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_confirm_payment_transitions_order` |
-| POST /api/v1/orders/{order_id}/voucher | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_get_voucher_cross_user_forbidden` |
-| GET /api/v1/orders/{order_id}/voucher | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_get_voucher_cross_user_forbidden` |
-| POST /api/v1/orders/{order_id}/milestones | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_get_milestones_cross_user_forbidden` |
-| GET /api/v1/orders/{order_id}/milestones | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_get_milestones_cross_user_forbidden` |
-| POST /api/v1/orders/{order_id}/bargaining/offer | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_bargaining_offer_submit` |
-| GET /api/v1/orders/{order_id}/bargaining | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_bargaining_thread_cross_user_forbidden` |
-| POST /api/v1/orders/{order_id}/bargaining/accept | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_bargaining_accept_sets_agreed_price` |
-| POST /api/v1/orders/{order_id}/bargaining/counter | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_bargaining_counter` |
-| POST /api/v1/orders/{order_id}/bargaining/accept-counter | yes | HTTP with mocking | `backend/api_tests/test_payment.py` | `test_bargaining_accept_counter_succeeds` |
-| POST /api/v1/orders/{order_id}/refund | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_initiate_refund` |
-| POST /api/v1/orders/{order_id}/refund/process | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_process_refund` |
-| GET /api/v1/orders/{order_id}/refund | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_get_refund_cross_user_forbidden` |
-| POST /api/v1/orders/{order_id}/after-sales | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_after_sales_within_window` |
-| GET /api/v1/orders/{order_id}/after-sales | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_after_sales_within_window` |
-| POST /api/v1/orders/{order_id}/after-sales/{request_id}/resolve | yes | HTTP with mocking | `backend/api_tests/test_refund_after_sales.py` | `test_after_sales_resolve` |
-| POST /api/v1/attendance/anomalies | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_flag_anomaly` |
-| GET /api/v1/attendance/anomalies | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_candidate_sees_own_anomaly_by_profile_id` |
-| POST /api/v1/attendance/exceptions | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_create_exception` |
-| GET /api/v1/attendance/exceptions | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_exception_searchable_by_status` |
-| GET /api/v1/attendance/exceptions/{exception_id} | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_candidate_exception_access_own` |
-| POST /api/v1/attendance/exceptions/{exception_id}/proof | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_upload_proof_transitions_status` |
-| POST /api/v1/attendance/exceptions/{exception_id}/review | yes | HTTP with mocking | `backend/api_tests/test_attendance.py` | `test_review_initial_approve` |
-| GET /api/v1/queue/documents | yes | HTTP with mocking | `backend/api_tests/test_queue_endpoints.py` | `test_pending_documents_reviewer_ok` |
-| GET /api/v1/queue/payments | yes | HTTP with mocking | `backend/api_tests/test_queue_endpoints.py` | `test_pending_payments_reviewer_ok` |
-| GET /api/v1/queue/orders | yes | HTTP with mocking | `backend/api_tests/test_queue_endpoints.py` | `test_pending_orders_reviewer_ok` |
-| GET /api/v1/queue/exceptions | yes | HTTP with mocking | `backend/api_tests/test_queue_endpoints.py` | `test_pending_exceptions_reviewer_ok` |
-| GET /api/v1/queue/after-sales | yes | HTTP with mocking | `backend/api_tests/test_queue_endpoints.py` | `test_pending_after_sales_reviewer_ok` |
-| GET /api/v1/admin/feature-flags | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_feature_flags_admin` |
-| POST /api/v1/admin/feature-flags | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_create_feature_flag` |
-| PATCH /api/v1/admin/feature-flags/{key} | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_update_feature_flag` |
-| GET /api/v1/admin/cohorts | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_cohorts` |
-| POST /api/v1/admin/cohorts | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_create_cohort` |
-| POST /api/v1/admin/cohorts/{cohort_id}/assign | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_assign_user_to_cohort` |
-| DELETE /api/v1/admin/cohorts/{cohort_id}/users/{user_id} | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_remove_user_from_cohort` |
-| GET /api/v1/admin/config/bootstrap/{user_id} | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_bootstrap_config_for_user` |
-| GET /api/v1/admin/audit | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_audit_search_returns_list` |
-| GET /api/v1/admin/rbac-policy | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_rbac_policy_endpoint` |
-| GET /api/v1/admin/masking-policy | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_masking_policy_endpoint` |
-| POST /api/v1/admin/exports | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_create_export_audit_csv` |
-| GET /api/v1/admin/exports | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_exports` |
-| GET /api/v1/admin/exports/{export_id}/download | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_download_export_content_and_watermark` |
-| GET /api/v1/admin/metrics/summary | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_metrics_summary_returns_dict` |
-| GET /api/v1/admin/traces | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_traces_returns_list` |
-| GET /api/v1/admin/cache-stats | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_cache_stats_empty_returns_list` |
-| GET /api/v1/admin/access-logs | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_access_logs_returns_list` |
-| GET /api/v1/admin/forecasts | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_list_forecasts_empty` |
-| POST /api/v1/admin/forecasts/compute | yes | HTTP with mocking | `backend/api_tests/test_admin.py` | `test_trigger_forecast` |
-| GET /api/v1/internal/health | yes | true no-mock HTTP | `backend/api_tests/test_health.py` | `test_health_ok` |
-| GET /api/v1/internal/metrics | yes | HTTP with mocking | `backend/api_tests/test_metrics_auth.py` | `test_metrics_admin_ok` |
+| GET /api/v1/internal/health | yes | true no-mock HTTP | test_health.py | test_health_ok: client.get('/api/v1/internal/health') |
+| GET /api/v1/internal/metrics | yes | true no-mock HTTP | test_metrics_auth.py | test_metrics_admin_ok: client.get('/api/v1/internal/metrics') |
+| POST /api/v1/auth/login | yes | true no-mock HTTP | test_auth_login.py | test_login_happy_path: client.post('/api/v1/auth/login') |
+| POST /api/v1/auth/refresh | yes | true no-mock HTTP | test_auth_refresh.py | test_refresh_ok: client.post('/api/v1/auth/refresh') |
+| POST /api/v1/auth/logout | yes | true no-mock HTTP | test_auth_logout.py | test_logout_ok: client.post('/api/v1/auth/logout') |
+| GET /api/v1/auth/me | yes | true no-mock HTTP | test_auth_me.py | test_me_ok: client.get('/api/v1/auth/me') |
+| POST /api/v1/auth/password/change | yes | true no-mock HTTP | test_auth_password_change.py | test_change_password_happy_path |
+| POST /api/v1/auth/device/challenge | yes | true no-mock HTTP | test_device_flow.py | test_device_enrollment_challenge |
+| POST /api/v1/auth/device/activate | yes | true no-mock HTTP | test_device_flow.py | test_device_activate |
+| POST /api/v1/auth/device/register | yes | true no-mock HTTP | test_device_flow.py | test_register_direct |
+| POST /api/v1/auth/device/{device_id}/rotate | yes | true no-mock HTTP | test_device_flow.py | test_device_rotate (path f'/api/v1/auth/device/{device_id}/rotate') |
+| DELETE /api/v1/auth/device/{device_id} | yes | true no-mock HTTP | test_device_flow.py | test_revoke |
+| POST /api/v1/idp/token | yes | true no-mock HTTP | test_idp_token.py | test_valid_client_issues_verifiable_token |
+| GET /api/v1/idp/jwks | yes | true no-mock HTTP | test_idp_jwks.py, test_idp_token.py | test_jwks_is_well_formed |
+| GET /api/v1/candidates | yes | true no-mock HTTP | test_candidates.py | test_list_candidates_reviewer_sees_all |
+| POST /api/v1/candidates | yes | true no-mock HTTP | test_candidates.py | test_create_ok |
+| GET /api/v1/candidates/{candidate_id} | yes | true no-mock HTTP | test_candidates.py | test_get_ok |
+| PATCH /api/v1/candidates/{candidate_id} | yes | true no-mock HTTP | test_candidates.py | test_patch_profile |
+| GET /api/v1/candidates/{candidate_id}/exam-scores | yes | true no-mock HTTP | test_candidates.py | test_list_exam_scores |
+| POST /api/v1/candidates/{candidate_id}/exam-scores | yes | true no-mock HTTP | test_candidates.py | test_add_exam_score |
+| GET /api/v1/candidates/{candidate_id}/transfer-preferences | yes | true no-mock HTTP | test_candidates.py | test_list_transfer_preferences |
+| POST /api/v1/candidates/{candidate_id}/transfer-preferences | yes | true no-mock HTTP | test_candidates.py | test_add_transfer_preference |
+| PATCH /api/v1/candidates/{candidate_id}/transfer-preferences/{pref_id} | yes | true no-mock HTTP | test_candidates.py | test_patch_transfer_preference |
+| GET /api/v1/candidates/{candidate_id}/checklist | yes | true no-mock HTTP | test_candidates.py | test_get_checklist |
+| POST /api/v1/candidates/{candidate_id}/documents/upload | yes | true no-mock HTTP | test_documents.py | test_upload_ok |
+| GET /api/v1/candidates/{candidate_id}/documents | yes | true no-mock HTTP | test_documents.py | test_list_my_documents |
+| GET /api/v1/candidates/{candidate_id}/documents/{document_id} | yes | true no-mock HTTP | test_documents.py | test_get_ok |
+| POST /api/v1/documents/{document_id}/review | yes | true no-mock HTTP | test_documents.py | test_review_happy_path |
+| GET /api/v1/documents/{document_id}/download | yes | true no-mock HTTP | test_documents.py | test_download_ok |
+| GET /api/v1/services | yes | true no-mock HTTP | test_orders.py | test_list_service_items |
+| POST /api/v1/orders | yes | true no-mock HTTP | test_orders.py, test_signed_route_success.py | test_create_order_fixed_price |
+| GET /api/v1/orders | no | none | none | No direct client.get('/api/v1/orders') request found in repo/backend/api_tests/*.py |
+| GET /api/v1/orders/{order_id} | yes | true no-mock HTTP | test_orders.py, test_payment.py, test_refund_after_sales.py | test_order_row_scope |
+| POST /api/v1/orders/{order_id}/cancel | yes | true no-mock HTTP | test_orders.py | test_cancel_order |
+| POST /api/v1/orders/{order_id}/confirm-receipt | yes | true no-mock HTTP | test_refund_after_sales.py | test_confirm_receipt_completes_order |
+| POST /api/v1/orders/{order_id}/advance | yes | true no-mock HTTP | test_refund_after_sales.py | _advance_order_to_completed |
+| POST /api/v1/orders/{order_id}/payment/proof | yes | true no-mock HTTP | test_payment.py | test_submit_proof |
+| POST /api/v1/orders/{order_id}/payment/confirm | yes | true no-mock HTTP | test_payment.py | test_confirm_payment_transitions_order |
+| POST /api/v1/orders/{order_id}/voucher | yes | true no-mock HTTP | test_payment.py | test_issue_voucher_happy_path |
+| GET /api/v1/orders/{order_id}/voucher | yes | true no-mock HTTP | test_payment.py | test_get_voucher_cross_user_forbidden |
+| POST /api/v1/orders/{order_id}/milestones | yes | true no-mock HTTP | test_payment.py | test_add_milestone |
+| GET /api/v1/orders/{order_id}/milestones | yes | true no-mock HTTP | test_payment.py | test_get_milestones_cross_user_forbidden |
+| POST /api/v1/orders/{order_id}/bargaining/offer | yes | true no-mock HTTP | test_payment.py | test_bargaining_offer_submit |
+| GET /api/v1/orders/{order_id}/bargaining | yes | true no-mock HTTP | test_payment.py | test_bargaining_offer_submit |
+| POST /api/v1/orders/{order_id}/bargaining/accept | yes | true no-mock HTTP | test_payment.py | test_bargaining_accept_sets_agreed_price |
+| POST /api/v1/orders/{order_id}/bargaining/counter | yes | true no-mock HTTP | test_payment.py | test_bargaining_counter |
+| POST /api/v1/orders/{order_id}/bargaining/accept-counter | yes | true no-mock HTTP | test_payment.py | test_bargaining_accept_counter_succeeds |
+| POST /api/v1/orders/{order_id}/refund | yes | true no-mock HTTP | test_refund_after_sales.py | test_initiate_refund |
+| POST /api/v1/orders/{order_id}/refund/process | yes | true no-mock HTTP | test_refund_after_sales.py | test_process_refund |
+| GET /api/v1/orders/{order_id}/refund | yes | true no-mock HTTP | test_refund_after_sales.py | test_get_refund_cross_user_forbidden |
+| POST /api/v1/orders/{order_id}/after-sales | yes | true no-mock HTTP | test_refund_after_sales.py | test_after_sales_within_window |
+| GET /api/v1/orders/{order_id}/after-sales | yes | true no-mock HTTP | test_refund_after_sales.py | test_resolve_after_sales_path_mismatch_rejected |
+| POST /api/v1/orders/{order_id}/after-sales/{request_id}/resolve | yes | true no-mock HTTP | test_refund_after_sales.py | test_after_sales_resolve |
+| GET /api/v1/queue/documents | yes | true no-mock HTTP | test_queue_endpoints.py | test_pending_documents_reviewer_ok |
+| GET /api/v1/queue/payments | yes | true no-mock HTTP | test_queue_endpoints.py | test_pending_payments_reviewer_ok |
+| GET /api/v1/queue/orders | yes | true no-mock HTTP | test_queue_endpoints.py | test_pending_orders_reviewer_ok |
+| GET /api/v1/queue/exceptions | yes | true no-mock HTTP | test_queue_endpoints.py | test_pending_exceptions_reviewer_ok |
+| GET /api/v1/queue/after-sales | yes | true no-mock HTTP | test_queue_endpoints.py | test_pending_after_sales_reviewer_ok |
+| POST /api/v1/attendance/anomalies | yes | true no-mock HTTP | test_attendance.py | test_flag_anomaly |
+| GET /api/v1/attendance/anomalies | yes | true no-mock HTTP | test_attendance.py | test_list_anomalies |
+| POST /api/v1/attendance/exceptions | yes | true no-mock HTTP | test_attendance.py | test_create_exception |
+| GET /api/v1/attendance/exceptions | yes | true no-mock HTTP | test_attendance.py | test_list_exceptions |
+| GET /api/v1/attendance/exceptions/{exception_id} | yes | true no-mock HTTP | test_attendance.py | test_get_exception |
+| POST /api/v1/attendance/exceptions/{exception_id}/proof | yes | true no-mock HTTP | test_attendance.py | test_upload_proof |
+| POST /api/v1/attendance/exceptions/{exception_id}/review | yes | true no-mock HTTP | test_attendance.py | test_submit_review_ok |
+| GET /api/v1/admin/feature-flags | yes | true no-mock HTTP | test_admin.py | test_list_feature_flags_admin |
+| POST /api/v1/admin/feature-flags | yes | true no-mock HTTP | test_admin.py | test_create_feature_flag |
+| PATCH /api/v1/admin/feature-flags/{key} | yes | true no-mock HTTP | test_admin.py | test_update_feature_flag |
+| GET /api/v1/admin/cohorts | yes | true no-mock HTTP | test_admin.py | test_list_cohorts |
+| POST /api/v1/admin/cohorts | yes | true no-mock HTTP | test_admin.py | test_create_cohort |
+| POST /api/v1/admin/cohorts/{cohort_id}/assign | yes | true no-mock HTTP | test_admin.py | test_assign_user_to_cohort |
+| DELETE /api/v1/admin/cohorts/{cohort_id}/users/{user_id} | yes | true no-mock HTTP | test_admin.py | test_remove_user_from_cohort |
+| GET /api/v1/admin/config/bootstrap/{user_id} | yes | true no-mock HTTP | test_admin.py | test_bootstrap_config_for_user |
+| GET /api/v1/admin/audit | yes | true no-mock HTTP | test_admin.py | test_audit_search_returns_list |
+| GET /api/v1/admin/rbac-policy | yes | true no-mock HTTP | test_admin.py | test_rbac_policy_endpoint |
+| GET /api/v1/admin/masking-policy | yes | true no-mock HTTP | test_admin.py | test_masking_policy_endpoint |
+| POST /api/v1/admin/exports | yes | true no-mock HTTP | test_admin.py | test_create_export_audit_csv |
+| GET /api/v1/admin/exports | yes | true no-mock HTTP | test_admin.py | test_list_exports |
+| GET /api/v1/admin/exports/{export_id}/download | yes | true no-mock HTTP | test_admin.py | test_download_export_content_and_watermark |
+| GET /api/v1/admin/metrics/summary | yes | true no-mock HTTP | test_admin.py | test_metrics_summary_returns_dict |
+| GET /api/v1/admin/traces | yes | true no-mock HTTP | test_admin.py | test_list_traces_returns_list |
+| GET /api/v1/admin/cache-stats | yes | true no-mock HTTP | test_admin.py | test_cache_stats_empty_returns_list |
+| GET /api/v1/admin/access-logs | yes | true no-mock HTTP | test_admin.py | test_list_access_logs_returns_list |
+| GET /api/v1/admin/forecasts | yes | true no-mock HTTP | test_admin.py | test_list_forecasts_empty |
+| POST /api/v1/admin/forecasts/compute | yes | true no-mock HTTP | test_admin.py | test_trigger_forecast |
 
 ## API Test Classification
 
-### 1) True No-Mock HTTP
-- `backend/api_tests/test_health.py`
-  - Uses `AsyncClient(ASGITransport(app=app))` without dependency overrides.
-  - Evidence: `test_health_ok`, `test_health_returns_json`.
+1. True No-Mock HTTP
+- Primary category for endpoint coverage tests.
+- Evidence: repo/backend/api_tests/conftest.py fixture `client` uses `AsyncClient(ASGITransport(app=app))` against `src.main.app`; comments explicitly state real get_db and real Postgres path.
+- Representative files: test_auth_login.py, test_candidates.py, test_documents.py, test_orders.py, test_payment.py, test_refund_after_sales.py, test_attendance.py, test_queue_endpoints.py, test_admin.py.
 
-### 2) HTTP with Mocking
-- Primary reason: dependency injection override of DB provider (`get_db`) in API fixture.
-- Files using `client`/`client_raw` from fixture (all route suites):
-  - `backend/api_tests/test_auth_*.py`, `test_candidates.py`, `test_documents.py`, `test_orders.py`, `test_payment.py`, `test_refund_after_sales.py`, `test_attendance.py`, `test_queue_endpoints.py`, `test_admin.py`, `test_metrics_auth.py`, `test_idp_jwks.py`, `test_idp_token.py`, `test_device_flow.py`, `test_signature_failure.py`, `test_signed_route_success.py`, `test_signed_routes_mutations.py`.
-- Additional mocked HTTP setup:
-  - `backend/api_tests/test_rbac_route_gate.py` custom app with `app.dependency_overrides[get_db]`.
-  - `backend/api_tests/test_error_envelope_secrets.py` custom isolated app (`/boom`) for handler behavior.
+2. HTTP with Mocking
+- No API tests found that mock/stub transport, controllers, or service providers in endpoint execution path.
+- Result: none.
 
-### 3) Non-HTTP (unit/integration without HTTP)
-- `backend/api_tests/test_error_envelopes.py`
-  - `test_schema_envelope_make_error_shape`
-  - `test_schema_envelope_make_success_shape`
-  - `test_error_body_details_default_to_empty_list`
-  - `test_paginated_response_shape`
+3. Non-HTTP (unit/integration without HTTP)
+- Present inside api_tests package but not endpoint HTTP coverage:
+- repo/backend/api_tests/test_refund_after_sales.py: `test_refund_slot_rollback` and `test_after_sales_outside_window` (direct domain/repository checks).
 
 ## Mock Detection
 
-### What is mocked / overridden
-- Dependency injection override of DB provider (`get_db`) with in-memory SQLite session factory.
+| What | Where | Impact |
+|---|---|---|
+| Environment patching (`monkeypatch.setenv`) | repo/backend/api_tests/conftest.py (`_patch_env`), test_admin.py (EXPORTS_ROOT), test_health.py, test_error_envelopes.py | Configuration-only patching, not route/service mocking |
+| JWT test key install (`install_keys`) | repo/backend/api_tests/conftest.py (`_install_jwt_keys`) | Injects signing keys for auth flow; no transport/controller mock |
+| KEK install override (`install_kek`) | repo/backend/api_tests/conftest.py (`_install_kek`) | Crypto material setup; no route/service bypass |
+| Separate synthetic app route `/admin-only` | repo/backend/api_tests/test_rbac_route_gate.py | HTTP test of dependency gate; not a project endpoint |
 
-### Where
-- `backend/api_tests/conftest.py`
-  - `app.dependency_overrides[get_db] = _override_get_db` in `client` fixture.
-  - `app.dependency_overrides[get_db] = _override_get_db` in `client_raw` fixture.
-- `backend/api_tests/test_rbac_route_gate.py`
-  - `app.dependency_overrides[get_db] = _override`.
-
-### Frontend mock usage (unit test context)
-- Extensive `vi.mock(...)` in frontend unit specs, e.g.:
-  - `frontend/unit_tests/views/DocumentListView.spec.ts`
-  - `frontend/unit_tests/views/OrderListView.spec.ts`
-  - `frontend/unit_tests/views/PaymentView.spec.ts`
-  - `frontend/unit_tests/auth/deviceBootstrap.spec.ts`
+Strict classification effect: these do not constitute HTTP transport/controller/service mocking for project endpoint execution.
 
 ## Coverage Summary
-- Total endpoints: **85**
-- Endpoints with HTTP tests: **85**
-- Endpoints with true no-mock HTTP tests: **1** (`GET /api/v1/internal/health`)
+- Total endpoints: 85
+- Endpoints with HTTP tests: 84
+- Endpoints with true no-mock HTTP tests: 84
+- HTTP coverage: 98.82% (84/85)
+- True API coverage: 98.82% (84/85)
 
-Computed:
-- HTTP coverage % = `85/85 * 100 = 100.00%`
-- True API coverage % = `1/85 * 100 = 1.18%`
+Uncovered endpoint:
+- GET /api/v1/orders
 
 ## Unit Test Summary
 
 ### Backend Unit Tests
-- Files detected: 31 (`backend/unit_tests/test_*.py`).
-- Modules covered (by filename evidence):
-  - Services/domain: payment, document policy/service, config service, forecasting, exception workflow, state machine, after-sales, refund/attendance policy.
-  - Security/auth: argon2, password policy, JWT, refresh tokens, signing, nonce, device keys, RBAC, encryption, hashing, data masking.
-  - Persistence/support: idempotency store, audit/cache stats/config schema, app import.
-- Important backend modules not directly unit-tested (strict, file-level evidence):
-  - Route handlers/controllers under `backend/src/api/routes/` (only API tests, no direct unit tests).
-  - Middleware in `backend/src/api/middleware.py` lacks dedicated unit test file.
-  - Most repository classes under `backend/src/persistence/repositories/` lack repository-focused unit test files (except idempotency-related coverage).
+- Unit test files detected: 31 files in repo/backend/unit_tests.
+- Modules covered (evidence by file names):
+- Services: test_config_service_unit.py, test_document_service_unit.py, test_payment_service_unit.py
+- Domain/state machine/policy: test_order_state_machine.py, test_order_state_machine_extended.py, test_after_sales_policy.py, test_document_policy.py, test_refund_attendance_unit.py
+- Security/auth/guards: test_rbac.py, test_jwt.py, test_nonce.py, test_login_throttle.py, test_password_policy.py, test_signing.py, test_device_keys.py, test_argon2.py, test_hashing.py, test_encryption.py, test_data_masking.py
+- Repository/storage-adjacent behavior: test_idempotency_store.py, test_cache_stats_logbacked.py, test_audit.py
 
-### Frontend Unit Tests (STRICT REQUIREMENT)
-- Frontend test files: **present** (52 specs under `frontend/unit_tests/`).
-- Framework/tool evidence:
-  - Vitest config: `frontend/vitest.config.ts` (`include: ['unit_tests/**/*.spec.ts']`, jsdom).
-  - Vue Test Utils usage: multiple specs import `mount` from `@vue/test-utils`.
-- Components/modules covered (direct import/render evidence):
-  - Views: `DocumentListView`, `OrderListView`, `PaymentView`, `BargainingView`, `ProfileView`, `ConfigView`, `ObservabilityView`, `ForecastView`, `ExportsView`, `AuditLogView`, etc.
-  - Components: `LoginForm`, `RoleAwareNav`, `UploadPanel`, `CountdownTimer`, `StatusChip`, `BannerAlert`.
-  - Stores/composables/services: `auth`, `order`, `document`, `attendance`, `queue`, `admin`, `useOfflineStatus`, `attendanceApi`, `requestSigner`, `offlineQueue`.
-- Important frontend components/modules not unit-tested (strict filename matching against `src/views`/`src/components`):
-  - Views without direct unit spec detected: `LoginView.vue`, `AdminDashboard.vue`, `AdminLayout.vue`, `UsersView.vue`, `QueuesView.vue`, `CandidateDashboard.vue`, `CandidateLayout.vue`, `StaffDashboard.vue`, `StaffLayout.vue`, `DocumentQueueView.vue`, `OrderQueueView.vue`, `AfterSalesQueueView.vue`, `ExceptionQueueView.vue`, `ExceptionDetailView.vue`, `ServiceCatalogView.vue`, `ExamScoresView.vue`, `TransferPreferencesView.vue`, `ForbiddenView.vue`, `NotFoundView.vue`, `SessionExpiredView.vue`.
-  - Components without obvious direct unit spec: `TimestampDisplay.vue`, `PaginationControls.vue`, `OfflineBanner.vue`, `ModalDrawer.vue`, `DataTable.vue`, `QueueBadge.vue`, `EmptyState.vue`, `ChecklistWidget.vue`, `ErrorEnvelope.vue`, `LoadingSpinner.vue`, `TimelineList.vue`, `MaskedValue.vue`.
+Important backend modules not clearly unit-tested:
+- API route/controller layer itself (expected if covered by API tests, but no route-unit tests)
+- Middleware modules in repo/backend/src/api/middleware (TraceIdMiddleware, AccessLogMiddleware)
+- Worker loop orchestration in repo/backend/src/workers (auto_cancel, bargaining_expiry, stale_queue, forecasting, refund_progression)
+- Repository classes under repo/backend/src/persistence/repositories (direct unit tests not evident by naming)
 
-**Frontend unit tests: PRESENT**
+### Frontend Unit Tests (STRICT)
+- Frontend unit test files: present (52 files under repo/frontend/unit_tests with .spec.ts/.contract.spec.ts).
+- Framework/tools detected:
+- Vitest imports in unit test files (e.g., repo/frontend/unit_tests/bootstrap.spec.ts)
+- Vue Test Utils imports (e.g., repo/frontend/unit_tests/views/ProfileView.spec.ts)
+- Vue component mount/render assertions (e.g., `mount(ProfileView)` in ProfileView.spec.ts)
+- Components/modules covered (representative):
+- Views: ProfileView, OrderListView, OrderDetailView, DocumentUploadView, DocumentReviewView, BargainingView, PaymentView, Queue/admin views
+- Primitives/components: UploadPanel, BannerAlert, CountdownTimer, StatusChip
+- Services/composables/stores/auth flows: attendanceApi, requestSigner, offlineQueue, useOfflineStatus, authSessionRefresh, routeGuard
+
+Important frontend modules not clearly tested:
+- App root composition and startup wiring in repo/frontend/src/main.ts and full App.vue integration behavior (no direct dedicated unit spec observed by file naming)
+- Some router-level end-to-end navigation permutations rely more on browser tests than unit-only assertions
+
+Mandatory verdict:
+- Frontend unit tests: PRESENT
+
+CRITICAL GAP check (fullstack/web + frontend missing/insufficient):
+- Not triggered (frontend unit tests are present with direct component mounting and vitest execution artifacts).
 
 ### Cross-Layer Observation
-- Backend API route-level coverage breadth is high (all endpoints hit).
-- True no-mock API coverage is very low due DB dependency override strategy.
-- Frontend has substantial unit coverage and also dedicated live E2E specs under `frontend/e2e/*.spec.ts`.
-- Balance is acceptable in breadth, but fidelity on backend API realism is low under strict no-mock criteria.
+- Coverage is backend-heavy but frontend is not untested.
+- Balance is acceptable: strong backend API tests plus substantial frontend unit suite and live E2E specs under repo/frontend/e2e.
 
 ## API Observability Check
-- Strong evidence in many suites:
-  - Explicit method/path, request payload, and response assertions (e.g., `test_auth_login.py`, `test_payment.py`, `test_admin.py`).
-- Weak areas:
-  - Some queue and gate tests assert mainly status code and envelope shape with minimal response semantic checks (`test_queue_endpoints.py`, parts of `test_rbac_route_gate.py`).
+- Strong in many API tests: explicit method/path calls, concrete inputs, and response body assertions.
+- Strong examples:
+- repo/backend/api_tests/test_auth_login.py (`test_login_happy_path`) validates payload and response fields.
+- repo/backend/api_tests/test_admin.py export download test validates status, response headers, and payload hash.
+- Weak spots:
+- Some queue tests mainly assert status and generic pagination shape with empty datasets (less business-content depth).
 
 ## Tests Check
-- Success paths: covered across auth, candidates, documents, orders, payment, admin.
-- Failure/negative paths: covered (auth failures, RBAC forbiddens, signature failures, validation failures, cross-user forbiddens).
-- Edge cases: present (idempotency conflict, bargaining windows, duplicate proofs, mismatch resolve path).
-- Validation depth: present, but uneven by module.
-- Auth/permissions: strongly covered.
-- Integration boundaries: HTTP layer used consistently; however DB provider override means not full production boundary.
-- `run_tests.sh` check:
-  - Docker-based orchestration: **OK**.
-  - Local dependency/install requirement in script: **not detected**.
+- Success paths: broadly covered.
+- Failure/auth/permission cases: broadly covered (401/403/404/409/422/429).
+- Edge cases: present for idempotency conflicts, signing failures, cross-user access, after-sales path mismatch.
+- Assertions quality: generally meaningful, not purely superficial.
+- Over-mocking risk: low for API tests.
+- run_tests.sh audit:
+- Docker-based orchestration: yes (passes Docker-first requirement for test execution path).
+- Local dependency requirement: no host pip/npm install in script.
+- Note: Playwright install step occurs inside container (`npx playwright install --with-deps`), not host-local.
 
-## End-to-End Expectations (fullstack)
-- Real FE↔BE tests exist under `frontend/e2e/` and `playwright.config.ts` (`live` project), with explicit no-stub intent.
-- Limitation: execution is conditional on `PW_LIVE_*` environment variables; static audit cannot prove operational reliability.
+## End-to-End Expectations (Fullstack)
+- Fullstack expectation met partially to strongly:
+- Live FE↔BE E2E tests exist in repo/frontend/e2e/*.spec.ts and Playwright `live` project configured in repo/frontend/playwright.config.ts.
+- This complements API + unit suites.
 
 ## Test Coverage Score (0-100)
-- **63 / 100**
+- Score: 92
 
 ## Score Rationale
-- + High endpoint breadth at HTTP level (100% endpoint hit coverage).
-- + Good auth/RBAC/failure-path breadth.
-- + Strong frontend unit presence; live E2E suite exists.
-- - Severe strict no-mock deficit on backend API tests (`1/85` true no-mock endpoint coverage).
-- - DB provider override across most API tests lowers confidence in production-parity behavior.
-- - Some shallow assertion zones (queue/gate surfaces).
+- -7: one uncovered endpoint (GET /api/v1/orders) in strict endpoint-to-test mapping.
+- -1: some queue assertions shallow in business payload depth.
+- High marks retained for breadth of real HTTP no-mock API coverage, auth/permission failures, and cross-layer test assets.
 
 ## Key Gaps
-1. True no-mock backend API coverage is critically low under strict criteria.
-2. Production DB behavior (PostgreSQL-specific behavior) is not validated by the primary API suite.
-3. Several frontend views/components have no direct unit specs.
-4. Some endpoint tests verify only status/envelope, not response semantics.
+1. Missing direct HTTP test for GET /api/v1/orders (list endpoint).
+2. Worker/middleware unit-level granularity is limited.
+3. Some queue tests verify structure/status more than domain-rich content.
 
 ## Confidence & Assumptions
-- Confidence: **high** for endpoint inventory and test-file mapping (route decorators counted directly).
-- Confidence: **medium-high** for strict no-mock classification (based on visible dependency overrides and fixture architecture).
-- Assumption: `app.dependency_overrides[get_db]` qualifies as mocking per provided strict rule.
+- Confidence: high.
+- Assumptions:
+- Static analysis only; no runtime execution performed.
+- Endpoint inventory excludes non-project synthetic test routes (e.g., `/admin-only` in test_rbac_route_gate.py).
 
 ---
 
 # README Audit
 
-## README Location Check
-- Required file exists: `repo/README.md`.
+Target file: repo/README.md
 
-## Hard Gates
+## Hard Gate Evaluation
 
 ### Formatting
-- Result: **PASS**
-- Evidence: structured markdown sections, tables, code blocks, readable hierarchy.
+- PASS.
+- README is structured, readable markdown with clear sections/tables.
 
 ### Startup Instructions (backend/fullstack)
-- Required: include `docker-compose up`.
-- Result: **PASS**
-- Evidence: README includes `docker compose up --build` and `docker compose up` under startup section.
+- PASS.
+- Contains `docker compose up --build` and `docker compose up` under startup section.
 
 ### Access Method
-- Required: URL + port for backend/web.
-- Result: **PASS**
-- Evidence: README states app URL `https://localhost:8443` and service/port table.
+- PASS.
+- Explicit URL and port provided: `https://localhost:8443`.
 
 ### Verification Method
-- Required: explicit method to confirm system works (e.g., curl/Postman API checks and/or concrete UI flow verification).
-- Result: **FAIL**
-- Evidence:
-  - README includes test execution instructions and feature descriptions.
-  - README does **not** provide concrete, minimal acceptance verification steps such as explicit curl/Postman request-response checks or stepwise UI success criteria from startup to verified outcome.
+- PASS.
+- Includes health curl check, authenticated login curl, admin endpoint check, and UI verification flow.
 
-### Environment Rules (STRICT)
-- Disallow: runtime package installs/manual DB setup instructions.
-- Result: **PASS (with caution)**
-- Evidence:
-  - No `npm install`, `pip install`, `apt-get` runtime instructions.
-  - Docker-first test/start flow documented.
-- Caution:
-  - Manual TLS/key provisioning is required before startup (documented), but this is secret/cert provisioning rather than DB/package install.
+### Environment Rules (STRICT Docker-contained)
+- PASS.
+- README now documents Docker-contained generation commands for certs/keys/secrets (containerized `openssl`) and removes host-local package/runtime install requirements from setup steps.
 
-### Demo Credentials (Conditional)
-- Auth exists in system: yes (JWT login/auth routes documented).
-- Required: username/email + password + all roles.
-- Result: **FAIL**
-- Evidence:
-  - README uses placeholders for Playwright live env vars (`<candidate>`, `<admin_password>`, etc.) and does not provide concrete demo credentials per role.
-  - No explicit statement of "No authentication required".
+### Demo Credentials (conditional auth exists)
+- PASS.
+- Includes username/password for all roles (Candidate, Reviewer, Admin, Proctor).
 
 ## Engineering Quality
 - Tech stack clarity: strong.
-- Architecture explanation: strong (service breakdown, module map, workers).
-- Testing instructions: strong for execution commands.
-- Security/roles: strong conceptual coverage.
-- Workflow explanation: strong descriptive coverage.
-- Presentation quality: high.
-- Compliance issue: fails strict hard-gates despite high narrative quality.
+- Architecture explanation: strong.
+- Testing instructions: strong and detailed.
+- Security/roles explanation: strong.
+- Workflow coverage: strong.
+- Presentation quality: strong.
+- No hard-gate compliance weakness remains.
 
 ## High Priority Issues
-1. Missing concrete demo credentials for authenticated roles (hard-gate failure).
-2. Missing explicit verification procedure demonstrating successful system operation via concrete API/UI checks (hard-gate failure).
+None.
 
 ## Medium Priority Issues
-1. README is lengthy and includes repeated sections (`Storage Paths`) which can reduce operator clarity.
-2. Verification intent is implied via test commands but not framed as deterministic acceptance criteria.
+1. Project type label is described as "full-stack" prose rather than explicitly declaring one normalized token (backend/fullstack/web/android/ios/desktop) at top.
 
 ## Low Priority Issues
-1. Some operational details are dense and could be split into quickstart vs deep-reference sections.
+1. README is very large; operational essentials are mixed with deep architectural detail, reducing quick-start signal density.
 
 ## Hard Gate Failures
-1. Verification Method: **FAILED**.
-2. Demo Credentials (auth-enabled system): **FAILED**.
+None.
 
 ## README Verdict
-- **FAIL**
+- PASS
+
+Reason: all required hard gates are now satisfied, including strict Docker-contained environment setup guidance.
 
 ---
 
 # Final Verdicts
-- **Test Coverage Audit Verdict:** PARTIAL PASS (breadth high, strict no-mock fidelity low).
-- **README Audit Verdict:** FAIL (hard-gate violations).
+- Test Coverage Audit Verdict: PARTIAL PASS (strong but not complete due uncovered GET /api/v1/orders).
+- README Audit Verdict: PASS.

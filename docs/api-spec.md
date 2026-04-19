@@ -240,11 +240,13 @@ GET /api/v1/documents/{document_id}/download
 
 Response headers:
   Content-Type: application/pdf (or image/jpeg, image/png)
-  X-File-Hash: sha256:<hash_of_served_content>
+  X-File-Hash: <sha256 hex digest of the bytes actually served>
   Content-Disposition: attachment; filename="watermarked_<original>.pdf"
 
-PDF files: watermarked with requesting username + ISO timestamp before delivery
-Non-PDF: served directly with hash header
+PDF files: watermarked with requesting username + ISO timestamp before delivery;
+           the X-File-Hash is the post-watermark hash so clients can verify
+           the bytes they actually received.
+Non-PDF:   served directly; X-File-Hash equals the stored file hash.
 ```
 
 ---
@@ -272,6 +274,7 @@ Non-PDF: served directly with hash header
 |---|---|---|
 | GET | /api/v1/candidates | List all candidate profiles (REVW/ADMN only, paginated) |
 | POST | /api/v1/candidates | Create candidate profile for a user (REVW/ADMN only) |
+| POST | /api/v1/candidates/self | Candidate-initiated self-profile bootstrap (CAND only; idempotent; row-scoped to `auth.sub`) |
 | GET | /api/v1/candidates/{candidate_id} | Get candidate profile (masked sensitive fields by default) |
 | PATCH | /api/v1/candidates/{candidate_id} | Update candidate profile fields |
 | GET | /api/v1/candidates/{candidate_id}/exam-scores | List exam scores (auth, row-scoped) |

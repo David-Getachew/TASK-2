@@ -217,7 +217,7 @@ FastAPI Application Server
 ```
 
 - **Auto-cancel:** A background worker checks orders in `pending_payment` state every minute. Orders older than 30 minutes without a payment confirmation event are atomically transitioned to `canceled`. If the item is capacity-limited, the reserved slot/inventory count is rolled back in the same transaction.
-- **Rollback feature flag:** `rollback_on_refund` flag in the config center controls whether refunds on capacity-limited items restore inventory.
+- **Rollback feature flag:** `rollback_on_refund` flag in the config center controls whether refunds on capacity-limited items restore inventory. Default is `true`; when the flag is unset or missing, `RefundService._is_rollback_enabled()` treats that as enabled so existing environments behave unchanged. When disabled, `process_refund` skips the capacity-slot release and the `refund_processed` audit event records `rollback_flag_enabled=false`, `rollback_skipped_by_flag=true` for operator visibility.
 - All transitions are recorded in an immutable `order_events` table with actor, timestamp, and previous/new state.
 
 ---
@@ -308,10 +308,10 @@ FastAPI Application Server
 | Requirement | Frontend Module(s) | Backend Module(s) |
 |---|---|---|
 | Candidate profile (application details, scores, transfer prefs) | `views/candidate/`, `stores/candidate.ts`, `services/candidateApi.ts` | `api/routes/candidates.py`, `schemas/candidate.py`, `services/candidate_service.py`, `persistence/models/candidate.py`, `persistence/repositories/candidate_repo.py` |
-| Document upload/review (PDF/JPG/PNG, 25MB, checklist, versioning, status) | `views/candidate/Documents.vue`, `components/upload/`, `stores/documents.ts` | `api/routes/documents.py`, `services/document_service.py`, `storage/file_store.py`, `security/watermark.py` |
+| Document upload/review (PDF/JPG/PNG, 25MB, checklist, versioning, status) | `views/candidate/documents/DocumentListView.vue`, `views/candidate/documents/DocumentUploadView.vue`, `components/common/UploadPanel.vue`, `stores/document.ts` | `api/routes/documents.py`, `services/document_service.py`, `storage/file_store.py`, `security/watermark.py` |
 | Fee-based ordering (fixed-price and bargaining modes) | `views/candidate/orders/OrderListView.vue`, `views/candidate/orders/OrderDetailView.vue`, `views/candidate/orders/BargainingView.vue`, `stores/order.ts` | `api/routes/orders.py`, `api/routes/bargaining.py`, `domain/order_state_machine.py`, `services/order_service.py`, `services/bargaining_service.py`, `workers/auto_cancel.py` |
-| Order timeline (12-hour timestamps, all states) | `components/orders/OrderTimeline.vue`, `composables/useTimestamp.ts` | `api/routes/orders.py`, `schemas/order.py` |
-| 30-minute auto-cancel + rollback | `components/orders/AutoCancelBanner.vue` | `workers/auto_cancel.py`, `domain/order_state_machine.py`, `persistence/order_repo.py` |
+| Order timeline (12-hour timestamps, all states) | `components/common/TimelineList.vue`, `composables/useTimestamp.ts` | `api/routes/orders.py`, `schemas/order.py` |
+| 30-minute auto-cancel + rollback | `components/common/CountdownTimer.vue` (rendered by `views/candidate/orders/OrderDetailView.vue` when `auto_cancel_at` is set) | `workers/auto_cancel.py`, `domain/order_state_machine.py`, `persistence/order_repo.py` |
 | After-sales service (14-day window) | `stores/order.ts` (submitAfterSales action), `services/refundApi.ts`; staff resolution UI: `views/staff/orders/AfterSalesQueueView.vue` (candidate-facing submission is composed via the store until a dedicated view ships) | `api/routes/refunds.py`, `services/after_sales_service.py`, `domain/after_sales_policy.py` |
 | Attendance exceptions (proof upload, routed review, immutable trail) | `views/candidate/attendance/ExceptionListView.vue`, `views/candidate/attendance/ExceptionDetailView.vue`, `views/staff/attendance/ExceptionQueueView.vue`, `views/staff/attendance/ExceptionReviewView.vue` | `api/routes/attendance.py`, `services/attendance_service.py`, `persistence/repositories/attendance_repo.py` |
 | Staff queues (confirmation, voucher, status, adjudication) | `views/staff/`, `stores/queue.ts` | `api/routes/queue.py`, `services/queue_service.py` |
@@ -320,8 +320,8 @@ FastAPI Application Server
 | Request signing + nonce anti-replay | `services/requestSigner.ts`, `composables/useDeviceKey.ts` | `security/nonce.py`, `security/signing.py` |
 | Internal IdP / SSO | `services/authApi.ts` | `security/idp.py`, `api/routes/idp.py`, `api/routes/auth.py` |
 | RBAC + row/column-level controls | `composables/usePermissions.ts`, `router/guards.ts` | `security/rbac.py`, `security/data_masking.py` |
-| Sensitive field masking + restricted downloads | `components/common/MaskedField.vue` | `security/data_masking.py`, `api/routes/documents.py` |
-| Watermarking + SHA-256 verification | — | `security/watermark.py`, `storage/document_store.py` |
+| Sensitive field masking + restricted downloads | `views/candidate/profile/ProfileView.vue` | `security/data_masking.py`, `api/routes/documents.py` |
+| Watermarking + SHA-256 verification | — | `security/watermark.py`, `storage/file_store.py` |
 | Envelope encryption at rest | — | `security/encryption.py`, `persistence/` |
 | HTTPS with local certs | — | `main.py`, Docker config |
 | Observability (logs, metrics, traces) | — | `telemetry/logging.py`, `telemetry/metrics.py`, `telemetry/tracing.py` |
@@ -335,7 +335,7 @@ FastAPI Application Server
 
 ## 14. Candidate Onboarding Flow
 
-Profile creation is a privileged operation (reviewer/admin creates the profile for a candidate user via `POST /api/v1/candidates?user_id=<uuid>`). One profile per user is enforced — duplicates return `409 BUSINESS_RULE_VIOLATION`.
+Profile creation supports two paths: privileged provisioning by reviewer/admin via `POST /api/v1/candidates?user_id=<uuid>`, and candidate self-initialization via `POST /api/v1/candidates/self`. One profile per user is enforced; self-initialization is idempotent for an existing profile.
 
 Sensitive PII (SSN, date of birth, phone, contact email) is stored AES-256-GCM encrypted via `encrypt_field(value, aad=candidate_id.bytes)`. Privileged roles see plaintext; candidate and proctor roles see masked values (last-4 SSN, year-only DOB, etc.) via `is_privileged(actor.role)`.
 
@@ -515,6 +515,8 @@ Service modules wrap `request<T>()` from `http.ts` for JSON endpoints. File uplo
 - The `getOfflineQueue()` factory returns a singleton; `__resetOfflineQueueForTests()` resets it between test runs.
 - `replayQueue()` iterates all pending items, calls `request()` per item, removes on success, and leaves failed items for the next reconnect cycle.
 - `useOfflineStatus()` composable listens to `window.online`/`offline` events and triggers `replayQueue()` automatically on reconnect.
+- **Transparent enqueue in the shared request layer**: `services/http.ts` wraps every mutation (`POST`/`PUT`/`PATCH`/`DELETE`) — if `navigator.onLine` is false or `fetch()` throws a network error, the request is diverted to the offline queue with an auto-generated `Idempotency-Key` and the caller receives an `OfflineQueuedError` (`code = 'OFFLINE_QUEUED'`) instead of a raw network exception. Callers handle this by surfacing a “will retry when online” banner; `replayQueue()` runs the same request shape later with the preserved idempotency key so the backend de-duplicates replays.
+- GET requests are **not** queued — they are read-only and simply fail until connectivity returns. Requests that fail after an in-flight retry are also not queued (the caller already saw the first attempt).
 
 ### 21.4 Request Signing (Browser-Side)
 
@@ -522,6 +524,7 @@ Service modules wrap `request<T>()` from `http.ts` for JSON endpoints. File uplo
 - `buildCanonical(method, path, timestamp, nonce, deviceId, body)` constructs the 7-line canonical form (`METHOD\nPATH\nX-Timestamp\nX-Nonce\nX-Device-ID\nsha256_hex(body)\n`).
 - `signRequest(canonical, privateKey)` produces a base64-encoded ECDSA signature appended as `X-Request-Signature`.
 - Signed requests are used for: bargaining offer submission, counter-accept, and any mutation that requires non-repudiation.
+- **Device enrollment is wired into the login path.** After `applyLoginResponse` + `loadSession` complete, `useAuthStore.login()` invokes `useDeviceKey().ensureEnrolled()` before returning to the caller. `ensureEnrolled` is idempotent — if IndexedDB already holds a `device_id`, it returns that id without contacting the challenge endpoint — so the cost on every login is one IndexedDB read after the first successful enrollment. Enrollment failure is surfaced via `auth.lastError` but does NOT roll back the login; the UI can prompt re-enrollment before the first signed mutation.
 
 ### 21.5 Shared UI Primitive Components
 
@@ -608,7 +611,7 @@ All admin routes are gated by `require_role(UserRole.admin)`. No reviewer can ac
 3. If cohort is active, merge `flag_overrides` on top of base flags.
 4. Return merged dict.
 
-`GET /admin/config/bootstrap/{user_id}` surfaces this decision (with `feature_flags`, `flag_overrides`, `resolved_flags`, `cohort_key`, `signature`) so admins can verify what config any user receives.
+`GET /admin/config/bootstrap/{user_id}` surfaces this decision (with `feature_flags`, `flag_overrides`, `resolved_flags`, `cohort_key`, `signature`) so admins can verify what config any user receives. The `signature` is an HMAC-SHA256 over the canonical JSON bootstrap payload, keyed by the server `SECRET_KEY`, so clients that know the shared secret can detect tampering; `verify_bootstrap_signature(...)` performs the constant-time comparison.
 
 ### 23.4 Frontend Config Bootstrap
 `useSessionStore` holds `featureFlags` and `cohort`. On login the session store's `apply()` is called with the config returned from the backend. `bargainingEnabled` and `rollbackEnabled` are computed properties read by business views.
@@ -716,11 +719,11 @@ All services share the `internal` bridge network. Only the `backend` service exp
 
 ### 28.1 Backend Tests
 
-All backend API tests (`api_tests/`) use `sqlite+aiosqlite:///:memory:` with SQLAlchemy `StaticPool` — one fresh database per test. The `conftest.py` `_patch_env` fixture sets `DATABASE_URL` to a syntactically valid PostgreSQL URL so that `Settings` validation passes, but the actual connection is never opened. SQLite dialect compilers are registered via `@compiles` to translate `UUID → CHAR(36)` and `JSONB → JSON`.
+All backend API tests (`api_tests/`) run against a **real PostgreSQL** instance — no in-memory substitute, no FastAPI dependency overrides. `run_tests.sh backend-api` brings up the `db` compose service and points `DATABASE_URL` at `postgresql+psycopg2://…@db:5432/merittrack` before invoking pytest. `conftest.pytest_configure` runs `Base.metadata.create_all` once via a sync `psycopg2` engine and then reconfigures the app's async engine with `NullPool` (asyncpg connections are bound to the event loop that created them; pytest-asyncio gives each test a fresh loop, so pooled re-use would raise a "different loop" error). An autouse async fixture `_clean_tables` truncates every public table before each test for isolation.
 
-**Why SQLite instead of a test PostgreSQL service:** All current queries are ORM-level (no raw SQL, no Postgres-specific functions). SQLite covers the full test suite without requiring a second database container. `--no-deps` in `run_tests.sh` prevents starting the `db` service when running tests.
+Because `get_db` is not overridden, every route-handler exercises the production database path: asyncpg driver, Postgres-native types (UUID, JSONB, INET), server-side defaults, and real uniqueness / FK / cascade semantics.
 
-**Limitation:** Queries that depend on PostgreSQL-specific operators (JSONB containment, `gen_random_uuid()`, advisory locks) are not exercised by SQLite-backed tests. No such queries exist in the current codebase; if added, dedicated integration tests against PostgreSQL would be needed.
+**Why the earlier SQLite-based harness was dropped:** SQLite + `@compiles` worked for ORM-level query coverage but registered as *mocked HTTP* under strict no-mock criteria (because `app.dependency_overrides[get_db]` was installed). Any test audit that counts dependency overrides as mocking would classify 84 of 85 endpoints as mocked. Running the same suite against a real Postgres dissolves that classification at the cost of needing Docker's `db` service available — a small price given Docker is already the only supported orchestration.
 
 ### 28.2 Frontend Browser Tests
 

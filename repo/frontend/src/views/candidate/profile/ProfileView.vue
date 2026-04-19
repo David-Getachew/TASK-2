@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCandidateStore } from '@/stores/candidate'
 import BannerAlert from '@/components/common/BannerAlert.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import CandidateProfileInitBanner from '@/components/candidate/CandidateProfileInitBanner.vue'
 import type { CandidateProfileUpdate } from '@/types/candidate'
 
 const auth = useAuthStore()
@@ -38,16 +39,24 @@ async function submit(): Promise<void> {
   const ok = await store.saveProfile(candidateId.value, { ...form })
   if (ok) saved.value = true
 }
+
+async function onProfileInitialized(id: string): Promise<void> {
+  await store.loadProfile(id)
+  if (store.profile) {
+    form.preferred_name = store.profile.preferred_name ?? ''
+    form.application_year = store.profile.application_year
+    form.program_code = store.profile.program_code
+  }
+}
 </script>
 
 <template>
   <div class="profile-view" data-testid="profile-view">
     <h2>My Profile</h2>
 
-    <BannerAlert
+    <CandidateProfileInitBanner
       v-if="missingProfile"
-      type="warning"
-      message="Candidate profile not found — please contact admissions staff to initialize your record."
+      @initialized="onProfileInitialized"
     />
 
     <LoadingSpinner v-if="store.loading" label="Loading profile…" />

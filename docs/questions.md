@@ -357,16 +357,16 @@ Record watermark metadata (username, timestamp, SHA-256) in the `ExportJob` reco
 
 ---
 
-## 28. Backend API tests use SQLite in-memory instead of PostgreSQL
+## 28. Backend API tests target real PostgreSQL (no SQLite substitute, no dependency overrides)
 
 **The Gap**
-`conftest.py` creates `sqlite+aiosqlite:///:memory:` with SQLAlchemy `StaticPool` for all API tests. The `DATABASE_URL` env var is set to a syntactically valid PostgreSQL URL only to satisfy `Settings` validation at import time — it is never opened.
+Originally `conftest.py` used `sqlite+aiosqlite:///:memory:` with `@compiles` hooks translating `UUID → CHAR(36)` and `JSONB → JSON`, plus `app.dependency_overrides[get_db]` in every `client` fixture. Under strict no-mock audit criteria any `app.dependency_overrides` install counts as mocking, so 84 of 85 endpoints registered as "mocked HTTP" even though the FastAPI route code and schemas were fully exercised.
 
 **The Interpretation**
-All current ORM queries are database-agnostic at the SQLAlchemy layer. SQLite covers the full API test suite without requiring a separate test database service or live PostgreSQL. SQLite dialect compilers are registered via `@compiles` to translate `UUID → CHAR(36)` and `JSONB → JSON`. The `--no-deps` flag in `run_tests.sh` prevents the `db` service from starting during test runs.
+Fidelity to the production DB path is more valuable than the convenience of a schema-less runner. Dropping the override and pointing `DATABASE_URL` at the compose `db` service costs one extra container during test runs but eliminates the mock classification entirely.
 
 **Proposed Implementation**
-Accepted as the authoritative test isolation strategy. If PostgreSQL-specific queries (JSONB operators, `gen_random_uuid()`, advisory locks) are added in the future, a dedicated integration-test stage against a real PostgreSQL instance would be required separately.
+`conftest.pytest_configure` runs `Base.metadata.create_all` via a sync `psycopg2` engine against the real Postgres, then reconfigures the app's async engine with `NullPool` (asyncpg connections are loop-bound and pooled connections break across pytest-asyncio's per-test event loops). An autouse async fixture `_clean_tables` truncates every public table before each test. The `client` / `client_raw` fixtures install no dependency overrides. `run_tests.sh backend-api` now runs `docker compose up -d db`, waits for `pg_isready`, and runs pytest with `DATABASE_URL=postgresql+psycopg2://…@db:5432/merittrack`.
 
 ---
 

@@ -107,7 +107,7 @@ async def download_document(
     actor: CurrentActor,
 ) -> StreamingResponse:
     svc = DocumentService(session, get_file_store())
-    content, content_type, filename = await svc.download(document_id, actor)
+    content, content_type, filename, served_hash = await svc.download(document_id, actor)
 
     def _iter():
         yield content
@@ -115,5 +115,11 @@ async def download_document(
     return StreamingResponse(
         _iter(),
         media_type=content_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            # X-File-Hash: SHA-256 hex of the bytes actually served. For PDFs
+            # this is the post-watermark hash, so clients that verify the
+            # header match what they received (not the raw stored object).
+            "X-File-Hash": served_hash,
+        },
     )

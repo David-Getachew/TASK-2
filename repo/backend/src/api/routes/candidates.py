@@ -139,6 +139,25 @@ async def create_candidate_profile(
     return make_success(_profile_to_read(profile, is_privileged(actor.role)))
 
 
+# 1b. POST /candidates/self — candidate-initiated self-profile creation.
+# Enforces row ownership (profile.user_id == authenticated user.id) and only
+# allows role=candidate. Returns existing profile idempotently on re-invocation.
+@router.post(
+    "/self",
+    response_model=SuccessResponse[CandidateProfileRead],
+    status_code=201,
+    dependencies=[Depends(require_role(UserRole.candidate))],
+)
+async def create_own_candidate_profile(
+    session: DbSession,
+    user: CurrentUser,
+    actor: CurrentActor,
+) -> SuccessResponse[CandidateProfileRead]:
+    svc = CandidateService(session)
+    profile = await svc.create_self_profile(user.id, actor)
+    return make_success(_profile_to_read(profile, is_privileged(actor.role)))
+
+
 # 2. GET /candidates/{candidate_id} — get profile (auth, row-scoped)
 @router.get(
     "/{candidate_id}",

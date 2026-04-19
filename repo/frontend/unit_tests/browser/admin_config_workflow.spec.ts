@@ -30,7 +30,7 @@ const FLAGS = [
   },
   {
     id: 'f-2',
-    key: 'rollback_enabled',
+    key: 'rollback_on_refund',
     value: 'true',
     value_type: 'boolean',
     description: 'Enable capacity rollback on cancel/refund',
@@ -91,7 +91,7 @@ test.describe('Admin feature flag update workflow', () => {
   test('flag keys are displayed in the table', async ({ page }) => {
     await page.goto('/admin/config')
     await expect(page.getByText('bargaining_enabled')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('rollback_enabled')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('rollback_on_refund')).toBeVisible({ timeout: 5000 })
   })
 
   test('clicking edit shows edit form', async ({ page }) => {

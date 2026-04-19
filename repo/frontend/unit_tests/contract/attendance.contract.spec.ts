@@ -17,9 +17,21 @@ function isReviewStep(value: unknown): boolean {
   )
 }
 
+function isProof(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return (
+    isString(value.id) &&
+    isString(value.exception_id) &&
+    isString(value.document_version_id) &&
+    isString(value.uploaded_by) &&
+    isString(value.uploaded_at)
+  )
+}
+
 function isAttendanceException(value: unknown): boolean {
   if (!isRecord(value)) return false
   if (!Array.isArray(value.review_steps)) return false
+  if (!Array.isArray(value.proofs)) return false
   return (
     isString(value.id) &&
     isNullableString(value.anomaly_id) &&
@@ -30,7 +42,8 @@ function isAttendanceException(value: unknown): boolean {
     isNullableString(value.submitted_at) &&
     isString(value.created_at) &&
     isString(value.updated_at) &&
-    value.review_steps.every(isReviewStep)
+    value.review_steps.every(isReviewStep) &&
+    value.proofs.every(isProof)
   )
 }
 

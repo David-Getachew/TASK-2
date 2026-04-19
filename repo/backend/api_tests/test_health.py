@@ -27,8 +27,12 @@ async def test_health_ok(client):
     response = await client.get("/api/v1/internal/health")
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ok"
-    assert body["service"] == "merittrack"
+    # Health endpoint conforms to the unified success envelope documented
+    # in docs/api-spec.md §1 — `{ success, data, meta }`.
+    assert body["success"] is True
+    assert body["data"]["status"] == "ok"
+    assert body["data"]["service"] == "merittrack"
+    assert "meta" in body and "trace_id" in body["meta"]
 
 
 @pytest.mark.asyncio

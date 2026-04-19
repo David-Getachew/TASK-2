@@ -43,7 +43,7 @@ export const useAdminStore = defineStore('admin', () => {
   const flags = ref<FeatureFlag[]>([])
   const featureFlags = ref<Record<string, boolean>>({
     bargaining_enabled: true,
-    rollback_enabled: true,
+    rollback_on_refund: true,
   })
 
   // Cohorts

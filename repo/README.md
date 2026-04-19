@@ -15,7 +15,7 @@ A full-stack offline-ready platform that unifies candidate onboarding, document 
 | Database | PostgreSQL 14+ |
 | Document Storage | Local filesystem (configurable mount path) |
 | Auth | Local username/password, Argon2id, 15-min JWT + refresh, internal IdP |
-| TLS | Locally provisioned certificates (mkcert or internal CA) |
+| TLS | Docker-generated local certificates or internal CA-issued certificates |
 | Containerization | Docker Compose |
 
 ---
@@ -134,10 +134,10 @@ Required secret material (mounted at runtime, never committed):
 
 | File | Purpose | Generation |
 |---|---|---|
-| `/secrets/jwt_private.pem` | RSA-2048 private key for access/IdP tokens | `openssl genrsa -out jwt_private.pem 2048` |
-| `/secrets/jwt_public.pem` | RSA-2048 public key (published via JWKS) | `openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem` |
-| `<KEK_PATH>/v1.key` | 32-byte KEK for envelope encryption; add `v2.key`, … to rotate | `openssl rand -out v1.key 32` |
-| `/certs/cert.pem` | HTTPS certificate | `mkcert -cert-file certs/cert.pem -key-file certs/key.pem localhost 127.0.0.1` |
+| `/secrets/jwt_private.pem` | RSA-2048 private key for access/IdP tokens | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl genrsa -out secrets/jwt_private.pem 2048` |
+| `/secrets/jwt_public.pem` | RSA-2048 public key (published via JWKS) | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem` |
+| `<KEK_PATH>/v1.key` | 32-byte KEK for envelope encryption; add `v2.key`, … to rotate | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl rand -out secrets/kek/v1.key 32` |
+| `/certs/cert.pem` | HTTPS certificate | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout certs/key.pem -out certs/cert.pem -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"` |
 | `/certs/key.pem` | HTTPS private key | (generated together with cert.pem above) |
 
 Routes where the backend requires an ECDSA-signed request (frontend mirrors this list in `services/http.ts`):
@@ -168,24 +168,23 @@ Health and observability endpoints:
 
 ## Certificate and Key Prerequisites
 
-The following files **must exist on the host before `docker compose up`**. They are NOT auto-provisioned.
+The following files must exist before `docker compose up`. Generate them with Docker commands only (no host-local package installs).
 
 | File | Purpose | Generation Command |
 |---|---|---|
-| `./certs/cert.pem` | TLS certificate | `mkcert -cert-file certs/cert.pem -key-file certs/key.pem localhost 127.0.0.1` |
+| `./certs/cert.pem` | TLS certificate | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout certs/key.pem -out certs/cert.pem -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"` |
 | `./certs/key.pem` | TLS private key | (generated together with cert.pem above) |
-| `./secrets/kek/v1.key` | AES-256 key-encryption key (32 raw bytes); `KEK_PATH` points to the directory, active key is `<KEK_PATH>/<KEK_CURRENT_VERSION>.key` | `mkdir -p secrets/kek && openssl rand -out secrets/kek/v1.key 32` |
-| `./secrets/jwt_private.pem` | RS256 JWT signing key | `openssl genrsa -out secrets/jwt_private.pem 2048` |
-| `./secrets/jwt_public.pem` | RS256 JWT verification key | `openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem` |
+| `./secrets/kek/v1.key` | AES-256 key-encryption key (32 raw bytes); `KEK_PATH` points to the directory, active key is `<KEK_PATH>/<KEK_CURRENT_VERSION>.key` | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl rand -out secrets/kek/v1.key 32` |
+| `./secrets/jwt_private.pem` | RS256 JWT signing key | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl genrsa -out secrets/jwt_private.pem 2048` |
+| `./secrets/jwt_public.pem` | RS256 JWT verification key | `docker run --rm -v "$PWD:/work" -w /work alpine/openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem` |
 
 ```bash
 # One-time setup (from repo/ directory)
-mkdir -p certs secrets
-mkcert -install
-mkcert -cert-file certs/cert.pem -key-file certs/key.pem localhost 127.0.0.1
-mkdir -p secrets/kek && openssl rand -out secrets/kek/v1.key 32
-openssl genrsa -out secrets/jwt_private.pem 2048
-openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
+mkdir -p certs secrets/kek
+docker run --rm -v "$PWD:/work" -w /work alpine/openssl req -x509 -newkey rsa:2048 -sha256 -nodes -keyout certs/key.pem -out certs/cert.pem -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+docker run --rm -v "$PWD:/work" -w /work alpine/openssl rand -out secrets/kek/v1.key 32
+docker run --rm -v "$PWD:/work" -w /work alpine/openssl genrsa -out secrets/jwt_private.pem 2048
+docker run --rm -v "$PWD:/work" -w /work alpine/openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
 ```
 
 ---
@@ -204,11 +203,106 @@ docker compose up
 
 The application will be available at `https://localhost:8443`.
 
+### Database migrations on boot
+
+The backend container entrypoint (`repo/backend/entrypoint.sh`) runs
+`alembic upgrade head` before starting Uvicorn, so a fresh container
+brings an empty database up to the latest schema automatically. No
+manual migration step is required for the documented startup path.
+
+If you need to run migrations manually (for example, when running the
+backend outside Docker), from `repo/backend/` execute:
+
+```bash
+alembic upgrade head
+```
+
+To skip the automatic migration at container boot — typically only for
+test harnesses that manage their own schema via `Base.metadata.create_all`
+— set `SKIP_MIGRATIONS=1` in the environment.
+
+---
+
+## Demo Credentials (development only)
+
+The platform requires authentication for all non-public routes. For local verification, seed deterministic demo users (one per role) via the bundled helper:
+
+```bash
+cd repo
+
+# One-time: seed demo users after `docker compose up` is running
+docker compose exec -e ENVIRONMENT=development backend python seed_demo.py
+```
+
+| Role | Username | Password |
+|---|---|---|
+| Candidate | `demo_candidate` | `MeritTrack!23456` |
+| Reviewer | `demo_reviewer` | `MeritTrack!23456` |
+| Admin | `demo_admin` | `MeritTrack!23456` |
+| Proctor | `demo_proctor` | `MeritTrack!23456` |
+
+Override the password with `DEMO_PASSWORD=<value>` on the `docker compose exec` command. The seed script refuses to run when `ENVIRONMENT=production`.
+
+> **⚠ Dev/test only.** These credentials exist solely for local verification and the no-mock Playwright suite. Do not ship them to a production environment — re-seed with strong passwords (or disable the helper) before any real deployment.
+
+---
+
+## Verifying the System (acceptance checks)
+
+After `docker compose up` and seeding demo users, run these concrete checks to confirm the system is operational.
+
+### 1. Health probe (no auth)
+
+```bash
+curl -k https://localhost:8443/api/v1/internal/health
+```
+
+**Expected:** HTTP 200 with body
+```json
+{"success": true, "data": {"status": "ok"}, "meta": {"trace_id": "..."}}
+```
+
+### 2. Authenticated login (admin role)
+
+```bash
+curl -k -X POST https://localhost:8443/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"username\": \"demo_admin\",
+    \"password\": \"MeritTrack!23456\",
+    \"nonce\": \"n-$(uuidgen)\",
+    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+  }"
+```
+
+**Expected:** HTTP 200, body contains `"access_token"`, `"refresh_token"`, `"role": "admin"`, `"expires_in": 900`.
+
+### 3. Authorized admin call
+
+```bash
+TOKEN=<access_token from step 2>
+curl -k https://localhost:8443/api/v1/admin/feature-flags \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Expected:** HTTP 200 with `"success": true` and a `data` array of feature-flag objects.
+
+### 4. Frontend UI verification
+
+Open `https://localhost:8443` in a browser (accept the self-signed certificate) and verify:
+
+1. The login page renders.
+2. Logging in as `demo_candidate` redirects to the candidate dashboard with navigation items for Profile, Documents, Services, Bargaining, and Attendance.
+3. Logging in as `demo_admin` redirects to the admin layout and the `/admin/config` page lists feature flags.
+4. Logging out returns to the login page.
+
+All four steps passing → system verified.
+
 ---
 
 ## Running Tests
 
-Backend tests use SQLite in-memory (no live database needed). Frontend tests run inside the `frontend-builder` container. All suites are Docker-first.
+Frontend tests run inside the `frontend-builder` container. Backend unit tests are hermetic. Backend API tests run against a real Postgres (the `db` service) — no SQLite, no dependency overrides, so every route exercises production DB wiring. All suites are Docker-first.
 
 ```bash
 cd repo
@@ -231,10 +325,12 @@ bash run_tests.sh frontend-browser-live
 | Suite | Runner | DB | Service Deps |
 |---|---|---|---|
 | `backend-unit` | `pytest unit_tests/` in backend container | None (pure logic) | None (`--no-deps`) |
-| `backend-api` | `pytest api_tests/` in backend container | SQLite in-memory | None (`--no-deps`) |
+| `backend-api` | `pytest api_tests/` in backend container | **Real Postgres** (auto-started `db` service) | `db` |
 | `frontend-unit` | `npx vitest run` in frontend-builder | N/A | None |
 | `frontend-browser` | `npx playwright test --project=chromium` (stubbed specs under `unit_tests/browser/`) | N/A | Vite dev server (auto-started) |
 | `frontend-browser-live` | `npx playwright test --project=live` (no-mock specs under `e2e/`) | Live backend DB | Live backend + Vite proxy |
+
+> `backend-api` now requires `POSTGRES_PASSWORD` to be exported before invocation (the `db` service validates it on startup). `run_tests.sh` fails fast if the variable is unset.
 
 Notes:
 - `npm run test:browser` runs the `chromium` project only — stubbed UI-logic specs with `page.route()`.
@@ -294,6 +390,7 @@ The Vue 3 frontend implements all primary user workflows with offline support:
 - Services & Orders: service catalog with capacity and bargaining indicators; order detail with countdown timer for auto-cancel; payment proof form with duplicate-submit guard
 - Bargaining: submit offers within 48h window, view counter-offer, accept counter; offers-remaining counter
 - Attendance Exceptions: list view, detail with proof upload, review history
+- After-Sales / Refund request: candidate-initiated form at `/candidate/orders/:orderId/after-sales` with prior-request history (complaint / refund_request)
 
 **Staff/Reviewer flows:**
 - Staff Dashboard with queue count badges
@@ -339,7 +436,7 @@ The following flows are fully implemented with real persistence, validation, and
 - **Document pipeline** — Upload (PDF/JPG/PNG, 25MB max), SHA-256 hashing, versioned resubmissions, reviewer decisions, role-gated download with watermarking
 - **Order lifecycle** — Service catalog, fixed-price and bargaining orders, 30-min auto-cancel, payment proof/confirm, vouchers, milestones, pending_receipt → completed
 - **Bargaining** — Max 3 offers / 48h window / reviewer counter-once / expiry worker
-- **Refunds** — Reviewer initiates, admin processes, atomic capacity slot rollback
+- **Refunds** — Reviewer initiates, admin processes; capacity slot rollback is gated by the `rollback_on_refund` feature flag (defaults to enabled; when disabled the slot is not released and the audit event records `rollback_skipped_by_flag=true`)
 - **After-sales** — 14-day window from completion, open → resolve workflow
 - **Attendance exceptions** — Anomaly flagging, proof upload, initial/final staged review, immutable approval trail with ECDSA signature hash
 - **Staff queues** — Five read-only paginated queue endpoints for pending work items
@@ -397,7 +494,7 @@ The following admin surfaces are fully implemented with RBAC enforcement, audit 
 - **`GET /api/v1/admin/feature-flags`** — list all feature flags with current values and types
 - **`POST /api/v1/admin/feature-flags`** — create a new flag (boolean, string, integer, json)
 - **`PATCH /api/v1/admin/feature-flags/{key}`** — update flag value; writes `FeatureFlagHistory` row; emits `feature_flag_changed` audit event
-- **Per-user flag resolution** — `GET /api/v1/admin/config/bootstrap/{user_id}` returns a merged view of base flags overridden by cohort `flag_overrides`, plus a SHA-256 integrity signature
+- **Per-user flag resolution** — `GET /api/v1/admin/config/bootstrap/{user_id}` returns a merged view of base flags overridden by cohort `flag_overrides`, plus an HMAC-SHA256 signature keyed by the server `SECRET_KEY` so tampering with the payload in transit or at rest is detectable (verified by `verify_bootstrap_signature`)
 
 ### Canary Cohort Routing
 - **`GET /api/v1/admin/cohorts`** — list cohort definitions

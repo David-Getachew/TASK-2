@@ -11,6 +11,21 @@ export const useCandidateStore = defineStore('candidate', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  async function initSelfProfile(): Promise<CandidateProfile | null> {
+    loading.value = true
+    error.value = null
+    try {
+      const created = await candidateApi.createSelfProfile()
+      profile.value = created
+      return created
+    } catch (e) {
+      error.value = (e as Error).message
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function loadProfile(candidateId: string): Promise<void> {
     loading.value = true
     error.value = null
@@ -122,6 +137,7 @@ export const useCandidateStore = defineStore('candidate', () => {
     checklist,
     loading,
     error,
+    initSelfProfile,
     loadProfile,
     saveProfile,
     loadExamScores,

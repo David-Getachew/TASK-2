@@ -8,12 +8,15 @@ a pilot cohort while it is globally false).
 """
 from __future__ import annotations
 
-import hashlib
+import hmac
+import json
 import uuid
 from datetime import datetime, timezone
+from hashlib import sha256
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import get_settings
 from ..domain.enums import AuditEventType, UserRole
 from ..persistence.repositories.config_repo import ConfigRepository
 from ..schemas.config import (
@@ -208,9 +211,14 @@ class ConfigService:
                 cohort_key = cohort.cohort_key
                 overrides = {str(k): str(v) for k, v in (cohort.flag_overrides or {}).items()}
         resolved = {**base_flags, **overrides}
-        # Deterministic signature over resolved config (HMAC-like but simple for local use)
-        payload = f"{user_id}:{cohort_key}:{sorted(resolved.items())}"
-        signature = hashlib.sha256(payload.encode()).hexdigest()[:32]
+        issued_at = datetime.now(tz=timezone.utc)
+        signature = _sign_bootstrap_payload(
+            user_id=user_id,
+            role=user_role,
+            cohort_key=cohort_key,
+            resolved=resolved,
+            issued_at=issued_at,
+        )
         return BootstrapConfigResponse(
             user_id=user_id,
             role=user_role,
@@ -218,7 +226,7 @@ class ConfigService:
             feature_flags=base_flags,
             flag_overrides=overrides,
             resolved_flags=resolved,
-            issued_at=datetime.now(tz=timezone.utc),
+            issued_at=issued_at,
             signature=signature,
         )
 
@@ -226,3 +234,65 @@ class ConfigService:
 def _require_admin(actor: Actor) -> None:
     if actor.role != UserRole.admin:
         raise ForbiddenError("Admin role required.")
+
+
+def _canonical_bootstrap_payload(
+    *,
+    user_id: uuid.UUID,
+    role: str,
+    cohort_key: str | None,
+    resolved: dict[str, str],
+    issued_at: datetime,
+) -> bytes:
+    # Canonicalise via JSON with sorted keys so both signer and verifier agree
+    # on byte ordering regardless of dict iteration order.
+    doc = {
+        "user_id": str(user_id),
+        "role": role,
+        "cohort_key": cohort_key,
+        "resolved_flags": {k: str(v) for k, v in sorted(resolved.items())},
+        "issued_at": issued_at.isoformat(),
+    }
+    return json.dumps(doc, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _sign_bootstrap_payload(
+    *,
+    user_id: uuid.UUID,
+    role: str,
+    cohort_key: str | None,
+    resolved: dict[str, str],
+    issued_at: datetime,
+) -> str:
+    """HMAC-SHA256 signature of the canonical bootstrap payload using
+    Settings.secret_key as the shared key. Replaces the prior keyless sha256
+    hash so tampering requires the server secret, not just canonical inputs.
+    """
+    key = get_settings().secret_key.encode("utf-8")
+    body = _canonical_bootstrap_payload(
+        user_id=user_id,
+        role=role,
+        cohort_key=cohort_key,
+        resolved=resolved,
+        issued_at=issued_at,
+    )
+    return hmac.new(key, body, sha256).hexdigest()
+
+
+def verify_bootstrap_signature(
+    *,
+    user_id: uuid.UUID,
+    role: str,
+    cohort_key: str | None,
+    resolved: dict[str, str],
+    issued_at: datetime,
+    signature: str,
+) -> bool:
+    expected = _sign_bootstrap_payload(
+        user_id=user_id,
+        role=role,
+        cohort_key=cohort_key,
+        resolved=resolved,
+        issued_at=issued_at,
+    )
+    return hmac.compare_digest(expected, signature)

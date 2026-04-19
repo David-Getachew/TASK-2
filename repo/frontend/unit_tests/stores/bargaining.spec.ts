@@ -15,11 +15,8 @@ function makeThread(overrides: Partial<BargainingThread> = {}): BargainingThread
     offers: [],
     counter_amount: null,
     counter_count: 0,
-    counter_by: null,
     counter_at: null,
-    resolved_offer_id: null,
     resolved_at: null,
-    created_at: new Date().toISOString(),
     ...overrides,
   }
 }
@@ -38,8 +35,8 @@ describe('useBargainingStore', () => {
     const store = useBargainingStore()
     store.thread = makeThread({
       offers: [
-        { id: 'o1', thread_id: 't1', offer_number: 1, amount: '100', submitted_by: 'u', outcome: 'pending', created_at: '' },
-        { id: 'o2', thread_id: 't1', offer_number: 2, amount: '120', submitted_by: 'u', outcome: 'pending', created_at: '' },
+        { id: 'o1', thread_id: 't1', offer_number: 1, amount: '100', submitted_by: 'u', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
+        { id: 'o2', thread_id: 't1', offer_number: 2, amount: '120', submitted_by: 'u', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
       ],
     })
     expect(store.offersRemaining).toBe(1)

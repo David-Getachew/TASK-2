@@ -19,9 +19,9 @@ from src.domain.enums import UserRole
 
 
 @pytest_asyncio.fixture
-async def gated_client(test_session_factory, _install_jwt_keys):
-    from src.persistence.database import get_db
-
+async def gated_client(_install_jwt_keys):
+    """Minimal FastAPI app with a single admin-gated route. Uses the real
+    `get_db` wired to Postgres — no dependency overrides."""
     app = FastAPI()
     register_exception_handlers(app)
 
@@ -29,16 +29,6 @@ async def gated_client(test_session_factory, _install_jwt_keys):
     async def admin_only():
         return {"ok": True}
 
-    async def _override():
-        async with test_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-
-    app.dependency_overrides[get_db] = _override
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as c:

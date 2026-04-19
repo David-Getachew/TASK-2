@@ -66,6 +66,23 @@ class ExceptionApprovalRead(BaseModel):
     signature_hash: str | None
 
 
+class ExceptionProofRead(BaseModel):
+    """Metadata for an exception proof attachment.
+
+    Embedded in ExceptionRead so reviewers/proctors can inspect the
+    uploaded evidence (filename, uploader, timestamp) without an extra
+    round-trip. The actual bytes remain behind the signed document
+    download endpoint.
+    """
+
+    id: uuid.UUID
+    exception_id: uuid.UUID
+    document_version_id: uuid.UUID
+    uploaded_by: uuid.UUID
+    uploaded_at: datetime
+    description: str | None = None
+
+
 class ExceptionRead(BaseModel):
     id: uuid.UUID
     anomaly_id: uuid.UUID | None
@@ -77,3 +94,4 @@ class ExceptionRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     review_steps: list[ExceptionReviewStepRead] = []
+    proofs: list[ExceptionProofRead] = []

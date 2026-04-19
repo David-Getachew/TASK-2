@@ -75,7 +75,7 @@ async function fileNewException(): Promise<void> {
           <div class="review-step__head">
             <strong>{{ step.stage }} — {{ step.decision }}</strong>
             <StatusChip :status="step.decision" size="sm" />
-            <TimestampDisplay :value="step.reviewed_at" />
+            <TimestampDisplay :value="step.decided_at" />
           </div>
           <p v-if="step.notes" class="review-step__notes">{{ step.notes }}</p>
         </div>

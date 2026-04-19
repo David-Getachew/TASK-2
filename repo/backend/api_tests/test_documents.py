@@ -207,6 +207,13 @@ async def test_download_reviewer_allowed(client, seeded_user, seeded_reviewer, t
     assert "Content-Disposition" in download.headers
     assert "attachment" in download.headers["Content-Disposition"]
     assert len(download.content) > 0
+    # X-File-Hash is SHA-256 of the bytes served (post-watermark for PDFs)
+    # per docs/api-spec.md. Clients can verify integrity from the header.
+    assert "X-File-Hash" in download.headers or "x-file-hash" in download.headers
+    served_hash = download.headers.get("X-File-Hash") or download.headers.get("x-file-hash")
+    assert served_hash is not None and len(served_hash) == 64
+    import hashlib as _hashlib
+    assert served_hash == _hashlib.sha256(download.content).hexdigest()
 
 
 @pytest.mark.asyncio

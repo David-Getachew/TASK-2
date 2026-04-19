@@ -61,7 +61,7 @@ async function handleAcceptCounter(): Promise<void> {
               <td>{{ offer.offer_number }}</td>
               <td>{{ offer.amount }}</td>
               <td><StatusChip :status="offer.outcome" size="sm" /></td>
-              <td><TimestampDisplay :value="offer.created_at" /></td>
+              <td><TimestampDisplay :value="offer.submitted_at" /></td>
             </tr>
           </tbody>
         </table>

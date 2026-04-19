@@ -25,11 +25,17 @@ COPY unit_tests/ ./unit_tests/
 COPY api_tests/ ./api_tests/
 COPY conftest.py .
 COPY pytest.ini .
+COPY seed_demo.py .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 # Frontend dist is mounted at runtime via volume (see docker-compose.yml)
 ENV FRONTEND_DIST_PATH=/app/frontend_dist
 
 EXPOSE 8443
 
-CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8443", \
-     "--ssl-certfile", "/certs/cert.pem", "--ssl-keyfile", "/certs/key.pem"]
+# entrypoint.sh runs `alembic upgrade head` before starting uvicorn so a
+# fresh container boot can bring up an empty database without an out-of-
+# band migration step. Set SKIP_MIGRATIONS=1 in the test harness if the
+# test fixture manages its own schema.
+CMD ["./entrypoint.sh"]

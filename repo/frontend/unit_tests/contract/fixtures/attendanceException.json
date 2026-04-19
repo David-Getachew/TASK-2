@@ -21,5 +21,15 @@
       "decided_at": "2026-01-01T00:10:00Z",
       "is_escalated": true
     }
+  ],
+  "proofs": [
+    {
+      "id": "proof-1",
+      "exception_id": "exc-1",
+      "document_version_id": "dv-1",
+      "uploaded_by": "cand-1",
+      "uploaded_at": "2026-01-01T00:05:00Z",
+      "description": "Doctor note"
+    }
   ]
 }

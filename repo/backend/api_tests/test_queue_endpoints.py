@@ -1,6 +1,6 @@
 """BE-API: Queue endpoints — role gates and pagination envelope for all 5 queue routes.
 
-All tests use real FastAPI ASGI against SQLite in-memory (via conftest fixtures).
+All tests use real FastAPI ASGI against a real PostgreSQL database (via conftest fixtures; no dependency overrides).
 No data is seeded, so every list returns an empty array; the assertions verify
 routing, auth enforcement, pagination structure, and query-param forwarding.
 """
@@ -200,6 +200,69 @@ async def test_admin_can_access_queue_after_sales(client, seeded_admin):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Proctor role policy — exceptions queue only (audit-3 High #3 remediation)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_proctor_can_access_queue_exceptions(client, seeded_proctor):
+    """Proctor is the frontline attendance adjudicator; the exceptions queue
+    MUST admit proctor so the staff exception-review flow works end-to-end.
+    """
+    token = await login(client, seeded_proctor)
+    resp = await client.get(
+        f"{BASE}/exceptions",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body["data"], list)
+    assert "pagination" in body
+
+
+@pytest.mark.asyncio
+async def test_proctor_forbidden_from_document_queue(client, seeded_proctor):
+    """Proctor must NOT be able to read the document review queue —
+    that queue is reviewer/admin only."""
+    token = await login(client, seeded_proctor)
+    resp = await client.get(
+        f"{BASE}/documents",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_proctor_forbidden_from_payment_queue(client, seeded_proctor):
+    token = await login(client, seeded_proctor)
+    resp = await client.get(
+        f"{BASE}/payments",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_proctor_forbidden_from_order_queue(client, seeded_proctor):
+    token = await login(client, seeded_proctor)
+    resp = await client.get(
+        f"{BASE}/orders",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_proctor_forbidden_from_after_sales_queue(client, seeded_proctor):
+    token = await login(client, seeded_proctor)
+    resp = await client.get(
+        f"{BASE}/after-sales",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
 
 
 # ---------------------------------------------------------------------------

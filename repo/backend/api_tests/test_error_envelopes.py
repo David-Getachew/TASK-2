@@ -35,8 +35,10 @@ async def test_health_returns_success_envelope_shape(client):
     response = await client.get("/api/v1/internal/health")
     assert response.status_code == 200
     body = response.json()
-    assert "status" in body
-    assert body["status"] == "ok"
+    # Health conforms to the unified `{success, data, meta}` envelope.
+    assert body["success"] is True
+    assert "data" in body and body["data"]["status"] == "ok"
+    assert "meta" in body
 
 
 @pytest.mark.asyncio

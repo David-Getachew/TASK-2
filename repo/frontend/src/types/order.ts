@@ -58,8 +58,10 @@ export interface BargainingOffer {
   offer_number: number
   amount: string
   submitted_by: string
-  outcome: 'pending' | 'accepted' | 'expired'
-  created_at: string
+  // Matches backend `OfferRead.submitted_at`. BE emits the wall-clock time
+  // the offer was recorded; views should render this field directly.
+  submitted_at: string
+  outcome: 'pending' | 'accepted' | 'expired' | null
 }
 
 export type BargainingThreadStatus =
@@ -69,6 +71,9 @@ export type BargainingThreadStatus =
   | 'counter_accepted'
   | 'expired'
 
+// Shape mirrors backend `schemas/bargaining.py::BargainingThreadRead`. BE
+// omits `counter_by`, `resolved_offer_id`, and `created_at`; views should not
+// depend on them. `counter_at` / `resolved_at` are emitted directly.
 export interface BargainingThread {
   id: string
   order_id: string
@@ -78,11 +83,8 @@ export interface BargainingThread {
   offers: BargainingOffer[]
   counter_amount: string | null
   counter_count: number
-  counter_by: string | null
   counter_at: string | null
-  resolved_offer_id: string | null
   resolved_at: string | null
-  created_at: string
 }
 
 export interface Voucher {

@@ -11,7 +11,7 @@ export const useSessionStore = defineStore('session', () => {
   const bootstrapAt = ref<string | null>(null)
 
   const bargainingEnabled = computed(() => !!featureFlags.value.bargaining_enabled)
-  const rollbackEnabled = computed(() => !!featureFlags.value.rollback_enabled)
+  const rollbackEnabled = computed(() => !!featureFlags.value.rollback_on_refund)
 
   function apply(cohortConfig: Record<string, unknown> | null): void {
     cohort.value = cohortConfig

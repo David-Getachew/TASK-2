@@ -76,3 +76,37 @@ async def test_refresh_with_unknown_token_returns_401(client):
     )
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_refresh_payload_requires_nonce_and_timestamp(client, seeded_user):
+    """FE/BE contract guard: refresh body must include nonce+timestamp.
+
+    Regression pin for audit-2 blocker (FE sent only refresh_token, BE required
+    nonce+timestamp). 422 validation error must come back if either is omitted.
+    """
+    tokens = await _login(client, seeded_user)
+
+    no_nonce = await client.post(
+        "/api/v1/auth/refresh",
+        json={
+            "refresh_token": tokens["refresh_token"],
+            "timestamp": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        },
+    )
+    assert no_nonce.status_code == 422
+
+    no_ts = await client.post(
+        "/api/v1/auth/refresh",
+        json={
+            "refresh_token": tokens["refresh_token"],
+            "nonce": f"n-{uuid.uuid4().hex}",
+        },
+    )
+    assert no_ts.status_code == 422
+
+    neither = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": tokens["refresh_token"]},
+    )
+    assert neither.status_code == 422

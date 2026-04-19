@@ -31,8 +31,7 @@ function makeThread(overrides: Partial<BargainingThread> = {}): BargainingThread
     id: 'thread-1', order_id: 'order-1', status: 'open',
     window_starts_at: now.toISOString(), window_expires_at: expires,
     offers: [], counter_amount: null, counter_count: 0,
-    counter_by: null, counter_at: null, resolved_offer_id: null,
-    resolved_at: null, created_at: now.toISOString(),
+    counter_at: null, resolved_at: null,
     ...overrides,
   }
 }
@@ -83,9 +82,9 @@ describe('BargainingView', () => {
     const store = useBargainingStore()
     store.thread = makeThread({
       offers: [
-        { id: 'o1', thread_id: 'thread-1', offer_number: 1, amount: '800', submitted_by: 'u1', outcome: 'pending', created_at: '' },
-        { id: 'o2', thread_id: 'thread-1', offer_number: 2, amount: '850', submitted_by: 'u1', outcome: 'pending', created_at: '' },
-        { id: 'o3', thread_id: 'thread-1', offer_number: 3, amount: '900', submitted_by: 'u1', outcome: 'pending', created_at: '' },
+        { id: 'o1', thread_id: 'thread-1', offer_number: 1, amount: '800', submitted_by: 'u1', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
+        { id: 'o2', thread_id: 'thread-1', offer_number: 2, amount: '850', submitted_by: 'u1', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
+        { id: 'o3', thread_id: 'thread-1', offer_number: 3, amount: '900', submitted_by: 'u1', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
       ],
     })
     await wrapper.vm.$nextTick()
@@ -110,7 +109,7 @@ describe('BargainingView', () => {
     const store = useBargainingStore()
     store.thread = makeThread({
       offers: [
-        { id: 'o1', thread_id: 'thread-1', offer_number: 1, amount: '800', submitted_by: 'u1', outcome: 'pending', created_at: '' },
+        { id: 'o1', thread_id: 'thread-1', offer_number: 1, amount: '800', submitted_by: 'u1', outcome: 'pending', submitted_at: '2026-01-01T00:00:00Z' },
       ],
     })
     await wrapper.vm.$nextTick()

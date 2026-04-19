@@ -62,11 +62,17 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
   })
 }
 
-export function refresh(refreshToken: string): Promise<RefreshResponse> {
+export interface RefreshPayload {
+  refresh_token: string
+  nonce: string
+  timestamp: string
+}
+
+export function refresh(payload: RefreshPayload): Promise<RefreshResponse> {
   return request<RefreshResponse>({
     method: 'POST',
     path: '/api/v1/auth/refresh',
-    body: { refresh_token: refreshToken },
+    body: payload,
     skipAuth: true,
     skipRefresh: true,
   })

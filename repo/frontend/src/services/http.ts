@@ -5,6 +5,7 @@
 import { useAuthStore } from '@/stores/auth'
 import type { ApiError, ApiResponse } from '@/types'
 import { getOrCreateDeviceKey } from './deviceKey'
+import { getOfflineQueue } from './offlineQueue'
 import {
   buildCanonical,
   currentTimestamp,
@@ -31,6 +32,53 @@ export class HttpError extends Error {
     this.status = status
     this.envelope = envelope
   }
+}
+
+// Raised when a mutation could not be sent because the browser is offline
+// (or the network request threw) and the request was enqueued for later
+// replay. Callers can recognise `code === 'OFFLINE_QUEUED'` to surface a
+// user-facing "action will retry" banner instead of treating it as an
+// error.
+export class OfflineQueuedError extends Error {
+  readonly code = 'OFFLINE_QUEUED'
+  readonly queueId: string
+  readonly idempotencyKey: string
+  constructor(queueId: string, idempotencyKey: string) {
+    super('Request was queued offline and will retry when connectivity is restored.')
+    this.queueId = queueId
+    this.idempotencyKey = idempotencyKey
+  }
+}
+
+const MUTATION_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+function isOnline(): boolean {
+  try {
+    return typeof navigator === 'undefined' ? true : navigator.onLine !== false
+  } catch {
+    return true
+  }
+}
+
+function generateIdempotencyKey(): string {
+  const rand = Math.random().toString(16).slice(2, 10)
+  return `idem-${Date.now()}-${rand}`
+}
+
+async function enqueueMutation(
+  opts: HttpOptions,
+  serializedBody: string | null,
+): Promise<never> {
+  const idempotencyKey = opts.idempotencyKey ?? generateIdempotencyKey()
+  const queue = getOfflineQueue()
+  const body = serializedBody !== null ? JSON.parse(serializedBody) : null
+  const queueId = await queue.enqueue({
+    method: opts.method,
+    path: opts.path,
+    body,
+    idempotencyKey,
+  })
+  throw new OfflineQueuedError(queueId, idempotencyKey)
 }
 
 // Paths that require canonical ECDSA request signing (X-Request-Signature + nonce + timestamp).
@@ -85,16 +133,39 @@ async function executeRequest<T>(opts: HttpOptions, isRetry: boolean): Promise<T
     headers['Authorization'] = `Bearer ${auth.tokens.access_token}`
   }
 
+  // Offline-ready: if the browser reports itself offline before we even
+  // issue the fetch, divert retryable mutations to the offline queue so
+  // they can be replayed once connectivity is restored. GETs and already-
+  // retried requests fall through to a normal fetch (which will surface
+  // the network error to the caller). We check this BEFORE signing so an
+  // un-enrolled device or a signing failure does not mask the offline
+  // enqueue path — replay will re-sign with fresh credentials.
+  if (
+    !isRetry &&
+    MUTATION_METHODS.has(opts.method) &&
+    !isOnline()
+  ) {
+    await enqueueMutation(opts, serializedBody)
+  }
+
   if (opts.signed ?? shouldSign(opts.path)) {
     await attachSigningHeaders(headers, opts, serializedBody)
   }
 
-  const response = await fetch(opts.path, {
-    method: opts.method,
-    body: serializedBody ?? undefined,
-    headers,
-    credentials: 'same-origin',
-  })
+  let response: Response
+  try {
+    response = await fetch(opts.path, {
+      method: opts.method,
+      body: serializedBody ?? undefined,
+      headers,
+      credentials: 'same-origin',
+    })
+  } catch (networkErr) {
+    if (!isRetry && MUTATION_METHODS.has(opts.method)) {
+      await enqueueMutation(opts, serializedBody)
+    }
+    throw networkErr
+  }
 
   let envelope: ApiResponse<T> | null = null
   try {

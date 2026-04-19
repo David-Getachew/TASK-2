@@ -217,6 +217,50 @@ async def test_list_candidates_candidate_forbidden(client, seeded_user):
 
 
 @pytest.mark.asyncio
+async def test_candidate_self_profile_init(client, seeded_user):
+    """Candidate can bootstrap their own profile via POST /candidates/self → 201."""
+    token = await login(client, seeded_user)
+    resp = await client.post(
+        "/api/v1/candidates/self",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["user_id"] == str(seeded_user["id"])
+
+
+@pytest.mark.asyncio
+async def test_candidate_self_profile_idempotent(client, seeded_user):
+    """Re-calling POST /candidates/self returns the existing profile, not 409."""
+    token = await login(client, seeded_user)
+    first = await client.post(
+        "/api/v1/candidates/self",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert first.status_code == 201
+    profile_id = first.json()["data"]["id"]
+
+    second = await client.post(
+        "/api/v1/candidates/self",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert second.status_code == 201, second.text
+    assert second.json()["data"]["id"] == profile_id
+
+
+@pytest.mark.asyncio
+async def test_candidate_self_profile_forbidden_for_reviewer(client, seeded_reviewer):
+    """Non-candidate roles cannot use the self-init endpoint → 403."""
+    token = await login(client, seeded_reviewer)
+    resp = await client.post(
+        "/api/v1/candidates/self",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_transfer_preferences_create_and_list(client, seeded_user, seeded_reviewer):
     """POST then GET transfer-preferences roundtrip for a candidate profile."""
     rev_token = await login(client, seeded_reviewer)

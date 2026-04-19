@@ -6,6 +6,7 @@ import BannerAlert from '@/components/common/BannerAlert.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import TimestampDisplay from '@/components/common/TimestampDisplay.vue'
+import CandidateProfileInitBanner from '@/components/candidate/CandidateProfileInitBanner.vue'
 import type { ExamScoreCreate } from '@/types/candidate'
 
 const auth = useAuthStore()
@@ -27,6 +28,10 @@ onMounted(async () => {
   await store.loadExamScores(candidateId.value)
 })
 
+async function onProfileInitialized(id: string): Promise<void> {
+  await store.loadExamScores(id)
+}
+
 async function submit(): Promise<void> {
   if (!candidateId.value) return
   saved.value = false
@@ -47,10 +52,9 @@ async function submit(): Promise<void> {
     <h2>Exam Scores</h2>
     <router-link to="/candidate/profile" class="back-link">← Back to Profile</router-link>
 
-    <BannerAlert
+    <CandidateProfileInitBanner
       v-if="missingProfile"
-      type="warning"
-      message="Candidate profile not found — please contact admissions staff to initialize your record."
+      @initialized="onProfileInitialized"
     />
 
     <LoadingSpinner v-if="store.loading" label="Loading…" />

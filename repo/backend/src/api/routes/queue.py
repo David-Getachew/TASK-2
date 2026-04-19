@@ -19,7 +19,17 @@ from ..dependencies import CurrentActor, DbSession, require_role
 router = APIRouter(
     prefix="/queue",
     tags=["queue"],
-    dependencies=[Depends(require_role(UserRole.reviewer, UserRole.admin))],
+)
+
+# Queue endpoints are role-gated per-route. Documents, payments, orders,
+# and after-sales queues are reviewer/admin only (reviewer owns those
+# adjudication flows). The attendance exceptions queue additionally
+# admits proctor, because proctor is the frontline owner of attendance
+# anomaly adjudication per the product requirements. Keeping the role
+# policy per-route makes the FE↔BE contract explicit.
+_REVIEWER_ADMIN = Depends(require_role(UserRole.reviewer, UserRole.admin))
+_PROCTOR_REVIEWER_ADMIN = Depends(
+    require_role(UserRole.proctor, UserRole.reviewer, UserRole.admin)
 )
 
 
@@ -27,6 +37,7 @@ router = APIRouter(
 @router.get(
     "/documents",
     response_model=PaginatedResponse[DocumentQueueItem],
+    dependencies=[_REVIEWER_ADMIN],
 )
 async def pending_documents(
     session: DbSession,
@@ -48,6 +59,7 @@ async def pending_documents(
 @router.get(
     "/payments",
     response_model=PaginatedResponse[PaymentQueueItem],
+    dependencies=[_REVIEWER_ADMIN],
 )
 async def pending_payments(
     session: DbSession,
@@ -69,6 +81,7 @@ async def pending_payments(
 @router.get(
     "/orders",
     response_model=PaginatedResponse[OrderQueueItem],
+    dependencies=[_REVIEWER_ADMIN],
 )
 async def pending_orders(
     session: DbSession,
@@ -86,10 +99,11 @@ async def pending_orders(
     )
 
 
-# 49. GET /queue/exceptions — pending exception review
+# 49. GET /queue/exceptions — pending exception review (proctor, reviewer, admin)
 @router.get(
     "/exceptions",
     response_model=PaginatedResponse[ExceptionQueueItem],
+    dependencies=[_PROCTOR_REVIEWER_ADMIN],
 )
 async def pending_exceptions(
     session: DbSession,
@@ -112,6 +126,7 @@ async def pending_exceptions(
 @router.get(
     "/after-sales",
     response_model=PaginatedResponse[AfterSalesQueueItem],
+    dependencies=[_REVIEWER_ADMIN],
 )
 async def pending_after_sales(
     session: DbSession,

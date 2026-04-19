@@ -61,6 +61,32 @@ class CandidateService:
         )
         return profile
 
+    async def create_self_profile(
+        self, user_id: uuid.UUID, actor: Actor
+    ) -> CandidateProfile:
+        """Candidate-initiated onboarding.
+
+        Strict row ownership: `user_id` MUST match the authenticated actor's
+        subject. If a profile already exists the call is idempotent — the
+        caller receives their existing profile instead of a business error.
+        """
+        if str(user_id) != actor.user_id:
+            raise ForbiddenError("Candidates may only initialize their own profile.")
+        existing = await self._repo.get_by_user_id(user_id)
+        if existing is not None:
+            return existing
+        profile = await self._repo.create(user_id=user_id)
+        await audit_mod.record_audit(
+            self._session,
+            event_type=AuditEventType.order_created,
+            actor_id=uuid.UUID(actor.user_id),
+            actor_role=actor.role.value,
+            resource_type="candidate_profile",
+            resource_id=str(profile.id),
+            outcome="self_created",
+        )
+        return profile
+
     async def list_profiles(
         self, actor: Actor, page: int, page_size: int
     ) -> tuple[list[CandidateProfile], int]:

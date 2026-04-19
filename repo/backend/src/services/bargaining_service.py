@@ -15,7 +15,7 @@ from ..domain.bargaining import (
     can_submit_offer,
     window_expires_at,
 )
-from ..domain.enums import AuditEventType, BargainingOfferOutcome, BargainingStatus, OrderStatus, UserRole
+from ..domain.enums import AuditEventType, BargainingOfferOutcome, BargainingStatus, OrderStatus, PricingMode, UserRole
 from ..persistence.models.order import BargainingThread, BargainingOffer
 from ..persistence.repositories.candidate_repo import CandidateRepository
 from ..persistence.repositories.order_repo import OrderRepository
@@ -28,6 +28,15 @@ from .order_service import OrderService
 
 def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
+
+
+# Thread statuses that are terminal/resolved and must not accept further mutations
+_TERMINAL_THREAD_STATES = {
+    BargainingStatus.accepted.value,
+    BargainingStatus.counter_accepted.value,
+    BargainingStatus.expired.value,
+    BargainingStatus.rejected.value,
+}
 
 
 class BargainingService:
@@ -68,7 +77,24 @@ class BargainingService:
         if order.status != OrderStatus.pending_payment.value:
             raise BusinessRuleError("Offers can only be submitted on pending_payment orders.")
 
+        # Enforce that the order is in bargaining pricing mode and the item permits it.
+        # Without these guards a fixed-price order could be pulled into the bargaining flow.
+        if order.pricing_mode != PricingMode.bargaining.value:
+            raise BusinessRuleError(
+                "Bargaining offers are not allowed on fixed-price orders."
+            )
+        item = await self._repo.get_service_item(order.item_id)
+        if item is None or not item.bargaining_enabled:
+            raise BusinessRuleError(
+                "Bargaining is not enabled for this service item."
+            )
+
         thread = await self.get_or_create_thread(order_id, now)
+        # Guard against mutating a resolved/expired thread.
+        if thread.status in _TERMINAL_THREAD_STATES:
+            raise BusinessRuleError(
+                "Bargaining thread is already resolved; no further offers allowed."
+            )
         existing_offer_count = await self._repo.count_offers(thread.id)
 
         try:
@@ -135,9 +161,25 @@ class BargainingService:
         if thread is None:
             raise ResourceNotFoundError("Bargaining thread not found.")
 
+        order = await self._repo.get_order(order_id)
+        if order is None:
+            raise ResourceNotFoundError("Order not found.")
+        if order.pricing_mode != PricingMode.bargaining.value:
+            raise BusinessRuleError(
+                "Bargaining accept is not allowed on fixed-price orders."
+            )
+        if thread.status in _TERMINAL_THREAD_STATES:
+            raise BusinessRuleError(
+                "Bargaining thread is already resolved; cannot accept further offers."
+            )
+
         offer = await self._repo.get_offer(offer_id)
         if offer is None or offer.thread_id != thread.id:
             raise ResourceNotFoundError("Offer not found in this thread.")
+        if offer.outcome is not None:
+            raise BusinessRuleError(
+                "Offer has already been resolved and cannot be accepted."
+            )
 
         # Mark accepted offer and expire others
         for o in (thread.offers or []):
@@ -154,10 +196,8 @@ class BargainingService:
         )
 
         # Set agreed price; order remains in pending_payment awaiting payment proof
-        order = await self._repo.get_order(order_id)
-        if order:
-            order.agreed_price = offer.amount
-            await self._session.flush()
+        order.agreed_price = offer.amount
+        await self._session.flush()
 
         await audit_mod.record_audit(
             self._session,
@@ -184,6 +224,18 @@ class BargainingService:
         thread = await self._repo.get_thread(order_id)
         if thread is None:
             raise ResourceNotFoundError("Bargaining thread not found.")
+
+        order = await self._repo.get_order(order_id)
+        if order is None:
+            raise ResourceNotFoundError("Order not found.")
+        if order.pricing_mode != PricingMode.bargaining.value:
+            raise BusinessRuleError(
+                "Counter-offers are not allowed on fixed-price orders."
+            )
+        if thread.status in _TERMINAL_THREAD_STATES:
+            raise BusinessRuleError(
+                "Bargaining thread is already resolved; cannot issue a counter-offer."
+            )
 
         try:
             can_counter(thread.counter_count)

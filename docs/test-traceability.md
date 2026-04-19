@@ -209,7 +209,7 @@ All requirements resolved. No pending entries.
 | REQ-019 Canary/Cohort Routing | `api_tests/test_admin.py` (cohort create/assign/remove, bootstrap, per-user flag resolution), `unit_tests/test_config_service_unit.py` (cohort override, bootstrap signature) | ✓ |
 | REQ-020 Forecasting | `api_tests/test_admin.py` (list forecasts, trigger compute), `unit_tests/test_forecasting_unit.py`, `unit_tests/views/ForecastView.spec.ts` | ✓ |
 | REQ-021 Cache Policy/Hit-Rate | `api_tests/test_admin.py` (cache stats list with hit_rate_pct), `unit_tests/views/ObservabilityView.spec.ts` | ✓ |
-| REQ-022 IndexedDB Offline Queue | `frontend/unit_tests/services/offlineQueue.spec.ts`, `frontend/unit_tests/browser/offline_sync.spec.ts` | ✓ |
+| REQ-022 IndexedDB Offline Queue | `frontend/unit_tests/services/offlineQueue.spec.ts`, `frontend/unit_tests/services/httpOfflineEnqueue.spec.ts`, `frontend/unit_tests/composables/useOfflineStatus.spec.ts` | ✓ |
 | App bootstrap importability | `backend/unit_tests/test_app_import.py`, `frontend/unit_tests/bootstrap.spec.ts` | ✓ |
 | Config schema validation | `backend/unit_tests/test_config.py` | ✓ |
 | Health endpoint | `backend/api_tests/test_health.py` | ✓ |

@@ -89,6 +89,6 @@ describe('ProfileView', () => {
     auth.candidateId = null
     const wrapper = mount(ProfileView, { global: { plugins: [router] } })
     await flushPromises()
-    expect(wrapper.text()).toContain('Candidate profile not found')
+    expect(wrapper.text()).toContain('Candidate profile not yet initialized')
   })
 })

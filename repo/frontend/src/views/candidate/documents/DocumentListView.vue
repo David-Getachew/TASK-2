@@ -9,6 +9,7 @@ import ChecklistWidget from '@/components/common/ChecklistWidget.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import BannerAlert from '@/components/common/BannerAlert.vue'
 import TimestampDisplay from '@/components/common/TimestampDisplay.vue'
+import CandidateProfileInitBanner from '@/components/candidate/CandidateProfileInitBanner.vue'
 
 const auth = useAuthStore()
 const candidateStore = useCandidateStore()
@@ -17,6 +18,13 @@ const router = useRouter()
 // Candidate profile UUID (distinct from user.id), resolved via /auth/me.
 const candidateId = computed(() => auth.candidateId ?? '')
 const missingProfile = computed(() => auth.user?.role === 'candidate' && !auth.candidateId)
+
+async function onProfileInitialized(id: string): Promise<void> {
+  await Promise.all([
+    docStore.loadDocuments(id),
+    candidateStore.loadChecklist(id),
+  ])
+}
 
 onMounted(async () => {
   if (!candidateId.value) return
@@ -36,10 +44,9 @@ onMounted(async () => {
       </router-link>
     </div>
 
-    <BannerAlert
+    <CandidateProfileInitBanner
       v-if="missingProfile"
-      type="warning"
-      message="Candidate profile not found — please contact admissions staff to initialize your record."
+      @initialized="onProfileInitialized"
     />
 
     <LoadingSpinner v-if="docStore.loading" label="Loading documents…" />

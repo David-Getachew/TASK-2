@@ -198,6 +198,118 @@ async def test_refund_slot_rollback(test_session_factory):
         assert inv2.reserved_count == max(0, initial - 1)
 
 
+async def _seed_refund_flag(test_session_factory, value: str) -> None:
+    """Upsert the rollback_on_refund feature flag directly via the repo."""
+    from src.persistence.repositories.config_repo import ConfigRepository
+
+    async with test_session_factory() as session:
+        repo = ConfigRepository(session)
+        existing = await repo.get_flag("rollback_on_refund")
+        if existing is None:
+            await repo.create_flag(
+                key="rollback_on_refund",
+                value=value,
+                value_type="boolean",
+                description="Restore capacity on refund",
+            )
+        else:
+            existing.value = value
+            await session.flush()
+        await session.commit()
+
+
+async def _run_refund_to_process(
+    client, seeded_user, seeded_reviewer, seeded_admin, test_session_factory
+) -> dict:
+    rev_token = await login(client, seeded_reviewer)
+    admin_token = await login(client, seeded_admin)
+    item_id = await _create_service_item(
+        test_session_factory, capacity_limited=True, total_slots=5
+    )
+
+    # Reserve the slot so rollback has something to release.
+    from src.persistence.models.order import ServiceItemInventory
+    from sqlalchemy import select
+
+    async with test_session_factory() as session:
+        inv = (
+            await session.execute(
+                select(ServiceItemInventory).where(ServiceItemInventory.item_id == item_id)
+            )
+        ).scalar_one()
+        inv.reserved_count = 1
+        await session.commit()
+
+    order_id, cand_token = await _create_profile_and_order(
+        client, seeded_user, rev_token, test_session_factory, item_id
+    )
+    await _advance_order_to_completed(client, order_id, cand_token, rev_token)
+    await signed_post_json(
+        client, rev_token, f"/api/v1/orders/{order_id}/refund",
+        {"amount": "150.00", "reason": "Refund requested."},
+    )
+    process_resp = await signed_post_json(
+        client, admin_token, f"/api/v1/orders/{order_id}/refund/process", {},
+    )
+    assert process_resp.status_code == 200, process_resp.text
+    return {
+        "order_id": order_id,
+        "item_id": item_id,
+        "refund": process_resp.json()["data"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_refund_rollback_flag_enabled_restores_slot(
+    client, seeded_user, seeded_reviewer, seeded_admin, test_session_factory
+):
+    """rollback_on_refund=true → processed refund releases the reserved slot."""
+    await _seed_refund_flag(test_session_factory, "true")
+    result = await _run_refund_to_process(
+        client, seeded_user, seeded_reviewer, seeded_admin, test_session_factory
+    )
+    assert result["refund"]["rollback_applied"] is True
+
+    from src.persistence.models.order import ServiceItemInventory
+    from sqlalchemy import select
+
+    async with test_session_factory() as session:
+        inv = (
+            await session.execute(
+                select(ServiceItemInventory).where(
+                    ServiceItemInventory.item_id == result["item_id"]
+                )
+            )
+        ).scalar_one()
+        assert inv.reserved_count == 0
+
+
+@pytest.mark.asyncio
+async def test_refund_rollback_flag_disabled_skips_slot_release(
+    client, seeded_user, seeded_reviewer, seeded_admin, test_session_factory
+):
+    """rollback_on_refund=false → refund processes but slot stays reserved."""
+    await _seed_refund_flag(test_session_factory, "false")
+    result = await _run_refund_to_process(
+        client, seeded_user, seeded_reviewer, seeded_admin, test_session_factory
+    )
+    assert result["refund"]["rollback_applied"] is False
+
+    from src.persistence.models.order import ServiceItemInventory
+    from sqlalchemy import select
+
+    async with test_session_factory() as session:
+        inv = (
+            await session.execute(
+                select(ServiceItemInventory).where(
+                    ServiceItemInventory.item_id == result["item_id"]
+                )
+            )
+        ).scalar_one()
+        # Slot stayed reserved because the flag gates the release path.
+        assert inv.reserved_count == 1
+
+
 @pytest.mark.asyncio
 async def test_after_sales_within_window(client, seeded_user, seeded_reviewer, test_session_factory):
     rev_token = await login(client, seeded_reviewer)

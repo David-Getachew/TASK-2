@@ -13,6 +13,7 @@ from .api.routes import api_router
 from .config import get_settings
 from .domain.enums import UserRole
 from .persistence.database import get_session_factory
+from .schemas.common import SuccessResponse, make_success
 from .telemetry.logging import configure_logging
 from .telemetry.metrics import render_metrics
 from .workers.auto_cancel import run_auto_cancel_loop
@@ -63,9 +64,23 @@ register_exception_handlers(app)
 app.include_router(api_router)
 
 
-@app.get("/api/v1/internal/health", tags=["internal"])
-async def health() -> dict:
-    return {"status": "ok", "service": "merittrack"}
+class _HealthPayload(dict):
+    """Typed payload for the health endpoint.
+
+    Using a plain ``dict`` subclass keeps the JSON shape stable while
+    letting us return it through ``SuccessResponse`` so the health
+    endpoint matches the unified envelope documented in
+    docs/api-spec.md §1.
+    """
+
+
+@app.get(
+    "/api/v1/internal/health",
+    tags=["internal"],
+    response_model=SuccessResponse[dict],
+)
+async def health() -> SuccessResponse[dict]:
+    return make_success({"status": "ok", "service": "merittrack"})
 
 
 @app.get(

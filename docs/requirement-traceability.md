@@ -43,7 +43,7 @@ This document maps every major requirement from the original prompt to the imple
 
 ## REQ-005: 30-Minute Auto-Cancel and Capacity Rollback
 **Requirement:** Orders auto-cancel after 30 minutes at pending_payment; atomic rollback of capacity/slots; feature flag for rollback on refund.
-**Frontend:** `src/components/orders/AutoCancelBanner.vue`
+**Frontend:** `src/components/common/CountdownTimer.vue` (rendered by `src/views/candidate/orders/OrderDetailView.vue` when `auto_cancel_at` is set)
 **Backend:** `src/workers/auto_cancel.py`, `src/domain/order_state_machine.py`, `src/persistence/order_repo.py`
 **DB Table(s):** `orders`, `order_events`, `service_item_inventory`, `rollback_events`
 **Schema Class(es):** `OrderRead`, `OrderEventRead`

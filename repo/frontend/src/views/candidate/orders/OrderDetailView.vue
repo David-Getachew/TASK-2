@@ -114,6 +114,14 @@ async function confirmReceipt(): Promise<void> {
         >
           Confirm Receipt
         </button>
+        <router-link
+          v-if="['completed', 'pending_receipt'].includes(store.currentOrder.status)"
+          :to="`/candidate/orders/${orderId}/after-sales`"
+          class="btn-secondary"
+          data-testid="open-after-sales"
+        >
+          After-Sales / Refund
+        </router-link>
       </div>
 
       <section class="order-detail__timeline">

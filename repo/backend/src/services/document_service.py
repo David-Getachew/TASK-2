@@ -229,7 +229,15 @@ class DocumentService:
 
     async def download(
         self, document_id: uuid.UUID, actor: Actor
-    ) -> tuple[bytes, str, str]:
+    ) -> tuple[bytes, str, str, str]:
+        """Return (content_bytes, content_type, filename, served_hash).
+
+        The fourth element is the SHA-256 of the bytes actually served to
+        the caller — post-watermark for PDFs, raw hash for other types.
+        The route handler emits it as the ``X-File-Hash`` response header
+        so clients can verify served-payload integrity per the documented
+        contract in docs/api-spec.md.
+        """
         if not can_download_restricted(actor.role):
             raise PolicyViolationError(
                 "Only reviewers and admins may download documents."
@@ -250,6 +258,8 @@ class DocumentService:
         if content_type == "application/pdf":
             raw = apply_pdf_watermark(raw, actor.username, _now())
 
+        served_hash = sha256_of_bytes(raw)
+
         await audit_mod.record_audit(
             self._session,
             event_type=AuditEventType.document_downloaded,
@@ -260,7 +270,7 @@ class DocumentService:
             outcome="downloaded",
         )
 
-        return raw, content_type, version.original_filename
+        return raw, content_type, version.original_filename, served_hash
 
     async def get_checklist(
         self, candidate_id: uuid.UUID

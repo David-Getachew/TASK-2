@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDocumentStore } from '@/stores/document'
 import UploadPanel from '@/components/common/UploadPanel.vue'
 import BannerAlert from '@/components/common/BannerAlert.vue'
+import CandidateProfileInitBanner from '@/components/candidate/CandidateProfileInitBanner.vue'
 
 const auth = useAuthStore()
 const docStore = useDocumentStore()
@@ -36,11 +37,7 @@ function goBack(): void {
       <button type="button" class="back-btn" @click="goBack">← Back</button>
     </div>
 
-    <BannerAlert
-      v-if="missingProfile"
-      type="warning"
-      message="Candidate profile not found — please contact admissions staff to initialize your record."
-    />
+    <CandidateProfileInitBanner v-if="missingProfile" />
 
     <BannerAlert v-if="docStore.uploadError" type="error" :message="docStore.uploadError" :dismissible="true" @dismiss="docStore.clearError()" />
 
