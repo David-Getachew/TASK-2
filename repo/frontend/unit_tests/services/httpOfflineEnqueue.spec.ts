@@ -55,12 +55,12 @@ describe('http offline enqueue', () => {
     }) as unknown as typeof fetch
 
     await expect(
-      request({ method: 'PATCH', path: '/api/v1/orders/o2', body: { note: 'x' } }),
+      request({ method: 'PATCH', path: '/api/v1/config/flags/o2', body: { note: 'x' } }),
     ).rejects.toBeInstanceOf(OfflineQueuedError)
 
     const items = await getOfflineQueue().list()
     expect(items).toHaveLength(1)
-    expect(items[0].path).toBe('/api/v1/orders/o2')
+    expect(items[0].path).toBe('/api/v1/config/flags/o2')
   })
 
   it('preserves caller-supplied idempotency keys', async () => {
@@ -91,7 +91,7 @@ describe('http offline enqueue', () => {
     }) as unknown as typeof fetch
 
     await expect(
-      request({ method: 'GET', path: '/api/v1/orders' }),
+      request({ method: 'GET', path: '/api/v1/health' }),
     ).rejects.toBe(networkErr)
 
     const items = await getOfflineQueue().list()

@@ -9,8 +9,10 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import AfterSalesView from '@/views/candidate/orders/AfterSalesView.vue'
 import { useOrderStore } from '@/stores/order'
 
-const submitAfterSalesMock = vi.fn()
-const listAfterSalesMock = vi.fn()
+const { submitAfterSalesMock, listAfterSalesMock } = vi.hoisted(() => ({
+  submitAfterSalesMock: vi.fn(),
+  listAfterSalesMock: vi.fn(),
+}))
 
 vi.mock('@/services/refundApi', () => ({
   submitAfterSales: submitAfterSalesMock,

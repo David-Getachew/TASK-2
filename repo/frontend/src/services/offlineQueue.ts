@@ -27,7 +27,7 @@ const DB_VERSION = 1
 
 function openQueueDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = globalThis.indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -119,7 +119,7 @@ let singleton: OfflineQueue | null = null
 
 function isIndexedDbAvailable(): boolean {
   try {
-    return typeof indexedDB !== 'undefined' && indexedDB !== null
+    return typeof globalThis.indexedDB !== 'undefined' && globalThis.indexedDB !== null
   } catch {
     return false
   }

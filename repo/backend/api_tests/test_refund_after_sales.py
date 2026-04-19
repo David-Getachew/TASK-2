@@ -227,19 +227,6 @@ async def _run_refund_to_process(
         test_session_factory, capacity_limited=True, total_slots=5
     )
 
-    # Reserve the slot so rollback has something to release.
-    from src.persistence.models.order import ServiceItemInventory
-    from sqlalchemy import select
-
-    async with test_session_factory() as session:
-        inv = (
-            await session.execute(
-                select(ServiceItemInventory).where(ServiceItemInventory.item_id == item_id)
-            )
-        ).scalar_one()
-        inv.reserved_count = 1
-        await session.commit()
-
     order_id, cand_token = await _create_profile_and_order(
         client, seeded_user, rev_token, test_session_factory, item_id
     )

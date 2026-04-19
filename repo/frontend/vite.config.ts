@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+const apiProxyTarget = process.env.API_PROXY_TARGET ?? 'https://localhost:8443'
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -25,7 +27,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://localhost:8443',
+        target: apiProxyTarget,
         secure: false,
         changeOrigin: true,
       },

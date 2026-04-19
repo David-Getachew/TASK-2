@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const liveE2EEnabled = process.env.PW_ENABLE_LIVE_E2E === '1'
+
 // Playwright is set up with two projects:
 //
 //   1. `chromium` — default, runs stubbed specs from `unit_tests/browser/`.
@@ -11,7 +13,8 @@ import { defineConfig, devices } from '@playwright/test'
 //      HTTP traffic through the Vite /api proxy to a running backend (no
 //      page.route() stubs). Each spec gates itself on PW_LIVE_* env vars and
 //      skips silently when they are absent, matching the existing
-//      `live_auth_smoke.spec.ts` discipline. Invoke with `--project=live`.
+//      `live_auth_smoke.spec.ts` discipline. This project is only registered
+//      when PW_ENABLE_LIVE_E2E=1.
 export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -39,11 +42,15 @@ export default defineConfig({
       grepInvert: /@live/,
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'live',
-      testDir: './e2e',
-      grep: /@live/,
-      use: { ...devices['Desktop Chrome'] },
-    },
+    ...(liveE2EEnabled
+      ? [
+          {
+            name: 'live',
+            testDir: './e2e',
+            grep: /@live/,
+            use: { ...devices['Desktop Chrome'] },
+          },
+        ]
+      : []),
   ],
 })

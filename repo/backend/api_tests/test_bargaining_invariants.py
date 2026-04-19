@@ -88,6 +88,14 @@ async def _submit_offer(client, cand_token: str, order_id: str, amount: str = "1
     )
 
 
+def _with_nonce_ts(payload: dict) -> dict:
+    return {
+        **payload,
+        "nonce": f"n-{uuid.uuid4().hex}",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 @pytest.mark.asyncio
 async def test_submit_offer_on_fixed_price_order_rejected(
     client, seeded_user, seeded_reviewer, test_session_factory
@@ -164,7 +172,7 @@ async def test_accept_on_resolved_thread_rejected(
         client,
         rev_token,
         f"/api/v1/orders/{order_id}/bargaining/accept",
-        {"offer_id": offer_id},
+        _with_nonce_ts({"offer_id": offer_id}),
     )
     assert first_accept.status_code == 200, first_accept.text
 
@@ -172,7 +180,7 @@ async def test_accept_on_resolved_thread_rejected(
         client,
         rev_token,
         f"/api/v1/orders/{order_id}/bargaining/accept",
-        {"offer_id": offer_id},
+        _with_nonce_ts({"offer_id": offer_id}),
     )
     assert second_accept.status_code == 409, second_accept.text
     assert second_accept.json()["error"]["code"] == "BUSINESS_RULE_VIOLATION"
@@ -197,7 +205,7 @@ async def test_counter_on_resolved_thread_rejected(
         client,
         rev_token,
         f"/api/v1/orders/{order_id}/bargaining/accept",
-        {"offer_id": offer_id},
+        _with_nonce_ts({"offer_id": offer_id}),
     )
     assert accept_resp.status_code == 200, accept_resp.text
 
@@ -230,7 +238,7 @@ async def test_submit_offer_after_resolution_rejected(
         client,
         rev_token,
         f"/api/v1/orders/{order_id}/bargaining/accept",
-        {"offer_id": offer_id},
+        _with_nonce_ts({"offer_id": offer_id}),
     )
     assert accept_resp.status_code == 200, accept_resp.text
 
